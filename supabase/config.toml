@@ -1,1 +1,4 @@
 project_id = "rwmqfgnlzawlklpfwfqu"
+
+[functions.admin_edit_punch]
+verify_jwt = false
