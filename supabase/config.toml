@@ -2,3 +2,9 @@ project_id = "rwmqfgnlzawlklpfwfqu"
 
 [functions.admin_edit_punch]
 verify_jwt = false
+
+[functions.clock_in]
+verify_jwt = false
+
+[functions.clock_out]
+verify_jwt = false
