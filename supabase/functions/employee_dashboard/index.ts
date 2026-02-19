@@ -27,40 +27,56 @@ Deno.serve(async (req) => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
+    if (userError || !user) {
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
 
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Verify employee role
-    const { data: userRow, error: userError } = await serviceClient
+    // Get user profile (allow both admin and employee)
+    const { data: userRow, error: profileError } = await serviceClient
       .from("users")
-      .select("role, company_id")
+      .select("role, company_id, is_active")
       .eq("id", userId)
       .single();
 
-    if (userError || !userRow) {
+    if (profileError || !userRow) {
       return new Response(
         JSON.stringify({ success: false, error: "User not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (userRow.role !== "employee") {
+    if (!userRow.is_active) {
       return new Response(
-        JSON.stringify({ success: false, error: "Only employees can access this dashboard" }),
+        JSON.stringify({ success: false, error: "Account is deactivated" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Check company trial status
+    const { data: company } = await serviceClient
+      .from("companies")
+      .select("plan_type, subscription_status, trial_ends_at")
+      .eq("id", userRow.company_id)
+      .single();
+
+    if (company?.subscription_status === "trialing" && company.trial_ends_at) {
+      if (new Date(company.trial_ends_at) < new Date()) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Trial has expired. Please upgrade your plan." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Check current status
@@ -78,11 +94,10 @@ Deno.serve(async (req) => {
     // Date boundaries
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-    const dayOfWeek = now.getDay(); // 0=Sun
+    const dayOfWeek = now.getDay();
     const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - mondayOffset).toISOString();
 
-    // Daily total
     const { data: dailyEntries } = await serviceClient
       .from("time_entries")
       .select("total_seconds")
@@ -93,7 +108,6 @@ Deno.serve(async (req) => {
 
     const dailyTotalSeconds = (dailyEntries ?? []).reduce((sum, e) => sum + (e.total_seconds ?? 0), 0);
 
-    // Weekly total
     const { data: weeklyEntries } = await serviceClient
       .from("time_entries")
       .select("total_seconds")
@@ -104,7 +118,6 @@ Deno.serve(async (req) => {
 
     const weeklyTotalSeconds = (weeklyEntries ?? []).reduce((sum, e) => sum + (e.total_seconds ?? 0), 0);
 
-    // Recent history (last 50)
     const { data: history } = await serviceClient
       .from("time_entries")
       .select("id, clock_in_at, clock_out_at, clock_in_lat, clock_in_lng, clock_in_location, clock_out_lat, clock_out_lng, clock_out_location, total_seconds, status")
@@ -121,6 +134,11 @@ Deno.serve(async (req) => {
           daily_total_hours: +(dailyTotalSeconds / 3600).toFixed(2),
           weekly_total_hours: +(weeklyTotalSeconds / 3600).toFixed(2),
           history: history ?? [],
+          company: company ? {
+            plan_type: company.plan_type,
+            subscription_status: company.subscription_status,
+            trial_ends_at: company.trial_ends_at,
+          } : null,
         },
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -27,43 +27,73 @@ Deno.serve(async (req) => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
+    if (userError || !user) {
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
 
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Verify user is employee
-    const { data: userRow, error: userError } = await serviceClient
+    const { data: userRow, error: profileError } = await serviceClient
       .from("users")
-      .select("role, company_id")
+      .select("role, company_id, is_active")
       .eq("id", userId)
       .single();
 
-    if (userError || !userRow) {
+    if (profileError || !userRow) {
       return new Response(
         JSON.stringify({ success: false, error: "User not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (userRow.role !== "employee") {
+    if (!userRow.is_active) {
       return new Response(
-        JSON.stringify({ success: false, error: "Only employees can clock in" }),
+        JSON.stringify({ success: false, error: "Account is deactivated" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Parse body for geolocation
+    // Check trial expiry
+    const { data: company } = await serviceClient
+      .from("companies")
+      .select("subscription_status, trial_ends_at, max_seats")
+      .eq("id", userRow.company_id)
+      .single();
+
+    if (company?.subscription_status === "trialing" && company.trial_ends_at) {
+      if (new Date(company.trial_ends_at) < new Date()) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Trial has expired. Please upgrade your plan." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Check seat limit
+    if (company?.max_seats) {
+      const { count } = await serviceClient
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", userRow.company_id)
+        .eq("is_active", true);
+
+      if (count && count > company.max_seats) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Seat limit exceeded. Please upgrade your plan." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     const body = await req.json();
     const { lat, lng, location } = body;
 
@@ -74,7 +104,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Check no active session
     const { data: activeEntry } = await serviceClient
       .from("time_entries")
       .select("id")
@@ -90,7 +119,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Insert new time entry
     const { data: entry, error: insertError } = await serviceClient
       .from("time_entries")
       .insert({

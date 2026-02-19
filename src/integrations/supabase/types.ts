@@ -51,17 +51,29 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          max_seats: number
           name: string
+          plan_type: string
+          subscription_status: string
+          trial_ends_at: string | null
         }
         Insert: {
           created_at?: string
           id?: string
+          max_seats?: number
           name: string
+          plan_type?: string
+          subscription_status?: string
+          trial_ends_at?: string | null
         }
         Update: {
           created_at?: string
           id?: string
+          max_seats?: number
           name?: string
+          plan_type?: string
+          subscription_status?: string
+          trial_ends_at?: string | null
         }
         Relationships: []
       }
@@ -138,6 +150,7 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          is_active: boolean
           role: string
         }
         Insert: {
@@ -146,6 +159,7 @@ export type Database = {
           email: string
           full_name?: string | null
           id: string
+          is_active?: boolean
           role: string
         }
         Update: {
@@ -154,6 +168,7 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          is_active?: boolean
           role?: string
         }
         Relationships: [

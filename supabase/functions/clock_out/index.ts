@@ -27,43 +27,41 @@ Deno.serve(async (req) => {
     );
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: userError } = await anonClient.auth.getUser(token);
+    if (userError || !user) {
       return new Response(
         JSON.stringify({ success: false, error: "Unauthorized" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = user.id;
 
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Verify user is employee
-    const { data: userRow, error: userError } = await serviceClient
+    const { data: userRow } = await serviceClient
       .from("users")
-      .select("role, company_id")
+      .select("role, company_id, is_active")
       .eq("id", userId)
       .single();
 
-    if (userError || !userRow) {
+    if (!userRow) {
       return new Response(
         JSON.stringify({ success: false, error: "User not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (userRow.role !== "employee") {
+    if (!userRow.is_active) {
       return new Response(
-        JSON.stringify({ success: false, error: "Only employees can clock out" }),
+        JSON.stringify({ success: false, error: "Account is deactivated" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Parse body for geolocation
     const body = await req.json();
     const { lat, lng, location } = body;
 
@@ -74,8 +72,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Find active session
-    const { data: activeEntry, error: fetchError } = await serviceClient
+    const { data: activeEntry } = await serviceClient
       .from("time_entries")
       .select("*")
       .eq("user_id", userId)
@@ -84,19 +81,17 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (fetchError || !activeEntry) {
+    if (!activeEntry) {
       return new Response(
         JSON.stringify({ success: false, error: "No active clock-in session found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Calculate total_seconds
     const now = new Date();
     const clockInTime = new Date(activeEntry.clock_in_at);
     const totalSeconds = Math.floor((now.getTime() - clockInTime.getTime()) / 1000);
 
-    // Update entry
     const { data: updatedEntry, error: updateError } = await serviceClient
       .from("time_entries")
       .update({
