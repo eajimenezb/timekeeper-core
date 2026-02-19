@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, LogIn, LogOut, Timer, CalendarDays, Users, Filter } from "lucide-react";
 import { format } from "date-fns";
+import { useLiveTimer } from "@/hooks/useLiveTimer";
 
 function formatHours(h: number) {
   const hrs = Math.floor(h);
@@ -109,6 +110,8 @@ export default function AdminDashboard() {
   });
 
   const isClockedIn = clockData?.current_status === "clocked_in";
+  const activeEntry = clockData?.history?.find((e: any) => e.status === "active");
+  const elapsed = useLiveTimer(activeEntry?.clock_in_at, isClockedIn);
   const getEmployeeName = (uid: string) => {
     const emp = adminData?.employees?.find((e) => e.id === uid);
     return emp?.full_name || emp?.email || uid.slice(0, 8);
@@ -146,6 +149,9 @@ export default function AdminDashboard() {
                 <Badge variant={isClockedIn ? "default" : "secondary"} className="text-sm px-4 py-1">
                   {isClockedIn ? "Clocked In" : "Clocked Out"}
                 </Badge>
+                {isClockedIn && (
+                  <p className="text-4xl font-mono font-bold text-foreground tracking-wider">{elapsed}</p>
+                )}
                 {isClockedIn ? (
                   <Button size="lg" variant="destructive" onClick={() => clockOut.mutate()} disabled={clockOut.isPending}>
                     <LogOut className="w-5 h-5 mr-2" /> Clock Out
