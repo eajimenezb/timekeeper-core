@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import {
@@ -16,26 +17,28 @@ import {
 interface DashboardLayoutProps {
   children: ReactNode;
   role: "admin" | "employee";
+  activePage?: string;
 }
 
-export default function DashboardLayout({ children, role }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, role, activePage = "panel" }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth();
   const { lang, setLang, t } = useLanguage();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const employeeNav = [
-    { icon: LayoutDashboard, label: t("panel"), active: true },
-    { icon: Clock, label: t("clock"), active: false },
-    { icon: CalendarDays, label: t("history"), active: false },
-    { icon: Settings, label: t("settings"), active: false },
+    { icon: LayoutDashboard, label: t("panel"), id: "panel", path: "/" },
+    { icon: Clock, label: t("clock"), id: "clock", path: "/" },
+    { icon: CalendarDays, label: t("history"), id: "history", path: "/history" },
+    { icon: Settings, label: t("settings"), id: "settings", path: "/" },
   ];
 
   const adminNav = [
-    { icon: LayoutDashboard, label: t("panel"), active: true },
-    { icon: Users, label: t("team"), active: false },
-    { icon: CalendarDays, label: t("reports"), active: false },
-    { icon: Settings, label: t("settings"), active: false },
+    { icon: LayoutDashboard, label: t("panel"), id: "panel", path: "/" },
+    { icon: Users, label: t("team"), id: "team", path: "/" },
+    { icon: CalendarDays, label: t("reports"), id: "reports", path: "/" },
+    { icon: Settings, label: t("settings"), id: "settings", path: "/" },
   ];
 
   const nav = role === "admin" ? adminNav : employeeNav;
@@ -82,11 +85,12 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
         <nav className="flex-1 py-4 px-3 space-y-1">
           {nav.map((item) => (
             <button
-              key={item.label}
+              key={item.id}
+              onClick={() => { navigate(item.path); setMobileOpen(false); }}
               className={`
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
                 transition-all duration-200
-                ${item.active
+                ${item.id === activePage
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
                 }
