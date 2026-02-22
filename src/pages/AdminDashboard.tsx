@@ -124,6 +124,17 @@ export default function AdminDashboard() {
     },
   });
 
+  const { data: companyInfo } = useQuery({
+    queryKey: ["company-name", profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return null;
+      const { data } = await supabase.from("companies").select("name").eq("id", profile.company_id).single();
+      return data as { name: string } | null;
+    },
+    enabled: !!profile?.company_id,
+  });
+  const companyName = companyInfo?.name || "";
+
   const { data: companyData } = useQuery({
     queryKey: ["admin-company"],
     queryFn: async () => {
@@ -424,7 +435,7 @@ export default function AdminDashboard() {
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
               {t("hello")}, {firstName} {settings?.use_emojis !== false ? "👋" : ""}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">{t("managerPanel")}</p>
+            <p className="text-sm text-muted-foreground mt-1">{profile?.company_id ? companyName : t("managerPanel")}</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <button
