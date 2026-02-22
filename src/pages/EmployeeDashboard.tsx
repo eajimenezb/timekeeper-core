@@ -142,7 +142,7 @@ export default function EmployeeDashboard() {
       const { data: userData } = await supabase.from("users").select("location_id" as any).eq("id", profile.id).single();
       if (!(userData as any)?.location_id) return null;
       const { data: loc } = await (supabase.from as any)("locations").select("*").eq("id", (userData as any).location_id).single();
-      return loc as { id: string; name: string; lat: number; lng: number; error_margin_meters: number; address: string | null } | null;
+      return loc as { id: string; name: string; lat: number; lng: number; error_margin_meters: number; address: string | null; logo_url: string | null } | null;
     },
     enabled: !!profile?.id,
   });
@@ -244,15 +244,15 @@ export default function EmployeeDashboard() {
               {isClockedIn && <span className="absolute inset-0 rounded-full border-2 border-destructive animate-ping opacity-20" />}
             </button>
 
-            <div className="flex items-center gap-8 text-center">
-              <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{t("today")}</p>
-                <p className="text-xl font-bold text-foreground">{data ? formatHours(data.daily_total_hours) : "—"}</p>
+            <div className="flex items-center gap-4 sm:gap-8 text-center">
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wider">{t("today")}</p>
+                <p className="text-lg sm:text-xl font-bold text-foreground whitespace-nowrap">{data ? formatHours(data.daily_total_hours) : "—"}</p>
               </div>
-              <div className="w-px h-8 bg-border" />
-              <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{t("week")}</p>
-                <p className="text-xl font-bold text-foreground">{data ? formatHours(data.weekly_total_hours) : "—"}</p>
+              <div className="w-px h-8 bg-border shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] sm:text-xs text-muted-foreground font-medium uppercase tracking-wider">{t("week")}</p>
+                <p className="text-lg sm:text-xl font-bold text-foreground whitespace-nowrap">{data ? formatHours(data.weekly_total_hours) : "—"}</p>
               </div>
             </div>
           </div>
@@ -281,9 +281,14 @@ export default function EmployeeDashboard() {
                       <span className="font-mono text-foreground/80 text-right max-w-[200px] truncate">{detectedAddress || `${geoPosition.lat.toFixed(4)}, ${geoPosition.lng.toFixed(4)}`}</span>
                     </div>
                     {userLocation && (
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">{lang === "es" ? "Ubicación asignada" : "Assigned Location"}</span>
-                        <span className="font-mono text-foreground/80 text-right max-w-[200px] truncate">{userLocation.name}{userLocation.address ? ` — ${userLocation.address}` : ""}</span>
+                      <div className="flex items-center justify-between text-xs gap-2">
+                        <span className="text-muted-foreground shrink-0">{lang === "es" ? "Ubicación asignada" : "Assigned Location"}</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          {userLocation.logo_url && (
+                            <img src={userLocation.logo_url} alt={userLocation.name} className="w-5 h-5 rounded object-cover shrink-0" />
+                          )}
+                          <span className="font-mono text-foreground/80 text-right truncate">{userLocation.name}{userLocation.address ? ` — ${userLocation.address}` : ""}</span>
+                        </div>
                       </div>
                     )}
                   <div className="flex items-center justify-between text-xs">

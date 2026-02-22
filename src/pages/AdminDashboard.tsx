@@ -27,6 +27,7 @@ import {
   Upload,
   Image,
   Coffee,
+  Download,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es, enUS } from "date-fns/locale";
@@ -389,6 +390,28 @@ export default function AdminDashboard() {
     setExpandedEmployees((prev) => ({ ...prev, [uid]: !prev[uid] }));
   };
 
+  const exportCsv = () => {
+    if (!adminData?.punches || adminData.punches.length === 0) return;
+    const headers = ["Employee,Date,Clock In,Clock Out,Duration (h),Status"];
+    const rows = adminData.punches
+      .filter((p: any) => p.status === "completed")
+      .map((p: any) => {
+        const name = getEmployeeName(p.user_id).replace(/,/g, " ");
+        const date = p.clock_in_at ? format(new Date(p.clock_in_at), "yyyy-MM-dd") : "";
+        const cin = p.clock_in_at ? format(new Date(p.clock_in_at), "hh:mm a") : "";
+        const cout = p.clock_out_at ? format(new Date(p.clock_out_at), "hh:mm a") : "";
+        const dur = p.total_seconds ? (p.total_seconds / 3600).toFixed(2) : "";
+        return `${name},${date},${cin},${cout},${dur},${p.status}`;
+      });
+    const blob = new Blob([headers.concat(rows).join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `report-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <DashboardLayout role="admin">
       <div className="p-4 lg:p-8 max-w-6xl mx-auto space-y-6">
@@ -400,7 +423,15 @@ export default function AdminDashboard() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">{t("managerPanel")}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={exportCsv}
+              disabled={!adminData?.punches || adminData.punches.length === 0}
+              className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">CSV</span>
+            </button>
             {companyData?.subscription_status === "trialing" && trialDaysLeft !== null && (
               <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-warning/10 text-warning">
                 <Clock className="w-3 h-3" />
