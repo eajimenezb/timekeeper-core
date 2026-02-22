@@ -196,7 +196,7 @@ export default function AdminDashboard() {
   const { data: locations } = useQuery({
     queryKey: ["locations"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("locations").select("*").order("name");
+      const { data, error } = await (supabase.from as any)("locations").select("*").order("name");
       if (error) throw error;
       return data as any[];
     },
@@ -213,10 +213,10 @@ export default function AdminDashboard() {
         company_id: profile!.company_id,
       };
       if (editingLocation) {
-        const { error } = await supabase.from("locations").update(payload as any).eq("id", editingLocation.id);
+        const { error } = await (supabase.from as any)("locations").update(payload).eq("id", editingLocation.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("locations").insert(payload as any);
+        const { error } = await (supabase.from as any)("locations").insert(payload);
         if (error) throw error;
       }
     },
@@ -232,7 +232,7 @@ export default function AdminDashboard() {
 
   const deleteLocation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("locations").delete().eq("id", id);
+      const { error } = await (supabase.from as any)("locations").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
