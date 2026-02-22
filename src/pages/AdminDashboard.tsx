@@ -21,6 +21,9 @@ import {
   X,
   Save,
   ChevronDown,
+  MapPin,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es, enUS } from "date-fns/locale";
@@ -64,11 +67,15 @@ export default function AdminDashboard() {
   // Modals
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<any>(null);
-  const [empForm, setEmpForm] = useState({ full_name: "", email: "", role: "employee" });
+  const [empForm, setEmpForm] = useState({ full_name: "", email: "", role: "employee", location_id: "" });
 
   const [showPunchModal, setShowPunchModal] = useState(false);
   const [editingPunch, setEditingPunch] = useState<any>(null);
   const [punchForm, setPunchForm] = useState({ clock_in_at: "", clock_out_at: "" });
+
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<any>(null);
+  const [locForm, setLocForm] = useState({ name: "", address: "", lat: "", lng: "", error_margin_meters: "100" });
 
   const { data: adminData, isLoading } = useQuery({
     queryKey: ["admin-dashboard"],
@@ -159,12 +166,11 @@ export default function AdminDashboard() {
   // Save employee (create or edit name/role)
   const saveEmployee = useMutation({
     mutationFn: async () => {
+      const locationId = empForm.location_id || null;
       if (editingEmployee) {
-        const { error } = await supabase.from("users").update({ full_name: empForm.full_name, role: empForm.role }).eq("id", editingEmployee.id);
+        const { error } = await supabase.from("users").update({ full_name: empForm.full_name, role: empForm.role, location_id: locationId } as any).eq("id", editingEmployee.id);
         if (error) throw error;
       } else {
-        // Create: sign up user via edge function would be needed for full flow.
-        // For now, insert directly (admin can add users to their company).
         const { error } = await supabase.from("users").insert({
           id: crypto.randomUUID(),
           company_id: profile!.company_id,
@@ -172,7 +178,8 @@ export default function AdminDashboard() {
           full_name: empForm.full_name,
           role: empForm.role,
           is_active: true,
-        });
+          location_id: locationId,
+        } as any);
         if (error) throw error;
       }
     },
@@ -184,6 +191,73 @@ export default function AdminDashboard() {
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
+
+  // Locations
+  const { data: locations } = useQuery({
+    queryKey: ["locations"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("locations").select("*").order("name");
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
+  const saveLocation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        name: locForm.name,
+        address: locForm.address || null,
+        lat: parseFloat(locForm.lat),
+        lng: parseFloat(locForm.lng),
+        error_margin_meters: parseInt(locForm.error_margin_meters) || 100,
+        company_id: profile!.company_id,
+      };
+      if (editingLocation) {
+        const { error } = await supabase.from("locations").update(payload as any).eq("id", editingLocation.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("locations").insert(payload as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      setShowLocationModal(false);
+      setEditingLocation(null);
+      toast({ title: t("locationSaved") });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteLocation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("locations").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["locations"] });
+      toast({ title: t("locationDeleted") });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const openCreateLocation = () => {
+    setEditingLocation(null);
+    setLocForm({ name: "", address: "", lat: "", lng: "", error_margin_meters: "100" });
+    setShowLocationModal(true);
+  };
+
+  const openEditLocation = (loc: any) => {
+    setEditingLocation(loc);
+    setLocForm({ name: loc.name, address: loc.address || "", lat: String(loc.lat), lng: String(loc.lng), error_margin_meters: String(loc.error_margin_meters) });
+    setShowLocationModal(true);
+  };
+
+  const getLocationName = (locId: string | null) => {
+    if (!locId || !locations) return t("noLocation");
+    return locations.find((l) => l.id === locId)?.name || t("noLocation");
+  };
 
   // Edit punch
   const savePunch = useMutation({
@@ -209,13 +283,13 @@ export default function AdminDashboard() {
 
   const openCreateEmployee = () => {
     setEditingEmployee(null);
-    setEmpForm({ full_name: "", email: "", role: "employee" });
+    setEmpForm({ full_name: "", email: "", role: "employee", location_id: "" });
     setShowEmployeeModal(true);
   };
 
   const openEditEmployee = (emp: any) => {
     setEditingEmployee(emp);
-    setEmpForm({ full_name: emp.full_name || "", email: emp.email, role: emp.role });
+    setEmpForm({ full_name: emp.full_name || "", email: emp.email, role: emp.role, location_id: emp.location_id || "" });
     setShowEmployeeModal(true);
   };
 
@@ -461,6 +535,53 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Location Management */}
+        <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
+          <div className="px-6 lg:px-8 pt-6 pb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-primary" />
+              {t("manageLocations")}
+            </h2>
+            <button
+              onClick={openCreateLocation}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t("createLocation")}
+            </button>
+          </div>
+          <div className="px-4 lg:px-6 pb-6 space-y-2">
+            {(!locations || locations.length === 0) && (
+              <p className="text-sm text-muted-foreground text-center py-6">{t("noLocations")}</p>
+            )}
+            {locations?.map((loc) => (
+              <div key={loc.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-muted/50 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{loc.name}</p>
+                  <p className="text-[10px] text-muted-foreground truncate">{loc.address || `${loc.lat}, ${loc.lng}`}</p>
+                </div>
+                <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-primary/10 text-primary">
+                  ±{loc.error_margin_meters}m
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => openEditLocation(loc)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
+                    <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                  <button
+                    onClick={() => { if (confirm(t("confirmDeleteLocation"))) deleteLocation.mutate(loc.id); }}
+                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Employee Modal */}
@@ -500,6 +621,19 @@ export default function AdminDashboard() {
                 >
                   <option value="employee">{t("employee")}</option>
                   <option value="admin">{t("administrator")}</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("assignLocation")}</label>
+                <select
+                  value={empForm.location_id}
+                  onChange={(e) => setEmpForm({ ...empForm, location_id: e.target.value })}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="">{t("noLocation")}</option>
+                  {locations?.map((loc) => (
+                    <option key={loc.id} value={loc.id}>{loc.name} (±{loc.error_margin_meters}m)</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -552,6 +686,87 @@ export default function AdminDashboard() {
               <button
                 onClick={() => savePunch.mutate()}
                 disabled={savePunch.isPending}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {t("save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Location Modal */}
+      {showLocationModal && (
+        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowLocationModal(false)}>
+          <div className="bg-card rounded-[2rem] p-6 w-full max-w-md space-y-4 shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-foreground">{editingLocation ? t("editLocation") : t("createLocation")}</h3>
+              <button onClick={() => setShowLocationModal(false)} className="p-1 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("locationName")}</label>
+                <input
+                  value={locForm.name}
+                  onChange={(e) => setLocForm({ ...locForm, name: e.target.value })}
+                  placeholder={lang === "es" ? "Ej: Oficina Principal" : "E.g. Main Office"}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("address")}</label>
+                <input
+                  value={locForm.address}
+                  onChange={(e) => setLocForm({ ...locForm, address: e.target.value })}
+                  placeholder={lang === "es" ? "Dirección completa" : "Full address"}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("latitude")}</label>
+                  <input
+                    value={locForm.lat}
+                    onChange={(e) => setLocForm({ ...locForm, lat: e.target.value })}
+                    type="number"
+                    step="any"
+                    placeholder="40.7128"
+                    className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("longitude")}</label>
+                  <input
+                    value={locForm.lng}
+                    onChange={(e) => setLocForm({ ...locForm, lng: e.target.value })}
+                    type="number"
+                    step="any"
+                    placeholder="-74.0060"
+                    className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("errorMarginMeters")}</label>
+                <input
+                  value={locForm.error_margin_meters}
+                  onChange={(e) => setLocForm({ ...locForm, error_margin_meters: e.target.value })}
+                  type="number"
+                  min="10"
+                  max="5000"
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {lang === "es" ? "Radio en metros donde se permite marcar asistencia" : "Radius in meters where punching is allowed"}
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowLocationModal(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">{t("cancel")}</button>
+              <button
+                onClick={() => saveLocation.mutate()}
+                disabled={saveLocation.isPending || !locForm.name || !locForm.lat || !locForm.lng}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />

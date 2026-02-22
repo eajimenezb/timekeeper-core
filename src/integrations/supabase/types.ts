@@ -77,6 +77,50 @@ export type Database = {
         }
         Relationships: []
       }
+      locations: {
+        Row: {
+          address: string | null
+          company_id: string
+          created_at: string
+          error_margin_meters: number
+          id: string
+          is_active: boolean
+          lat: number
+          lng: number
+          name: string
+        }
+        Insert: {
+          address?: string | null
+          company_id: string
+          created_at?: string
+          error_margin_meters?: number
+          id?: string
+          is_active?: boolean
+          lat: number
+          lng: number
+          name: string
+        }
+        Update: {
+          address?: string | null
+          company_id?: string
+          created_at?: string
+          error_margin_meters?: number
+          id?: string
+          is_active?: boolean
+          lat?: number
+          lng?: number
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       time_entries: {
         Row: {
           clock_in_at: string | null
@@ -151,6 +195,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_active: boolean
+          location_id: string | null
           role: string
         }
         Insert: {
@@ -160,6 +205,7 @@ export type Database = {
           full_name?: string | null
           id: string
           is_active?: boolean
+          location_id?: string | null
           role: string
         }
         Update: {
@@ -169,6 +215,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_active?: boolean
+          location_id?: string | null
           role?: string
         }
         Relationships: [
@@ -177,6 +224,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
