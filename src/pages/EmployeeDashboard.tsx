@@ -51,6 +51,7 @@ export default function EmployeeDashboard() {
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const circleRef = useRef<L.Circle | null>(null);
+  const punchInProgressRef = useRef(false);
   const dateFnsLocale = lang === "es" ? es : enUS;
 
   const [geoPosition, setGeoPosition] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
@@ -104,26 +105,30 @@ export default function EmployeeDashboard() {
 
   const clockIn = useMutation({
     mutationFn: async () => {
-      if (!geoPosition) throw new Error(t("gpsError"));
+      if (punchInProgressRef.current) throw new Error("Already processing");
+      punchInProgressRef.current = true;
+      if (!geoPosition) { punchInProgressRef.current = false; throw new Error(t("gpsError")); }
       const { data, error } = await supabase.functions.invoke("clock_in", { body: { lat: geoPosition.lat, lng: geoPosition.lng } });
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      if (error) { punchInProgressRef.current = false; throw error; }
+      if (!data.success) { punchInProgressRef.current = false; throw new Error(data.error); }
       return data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-dashboard"] }); toast({ title: t("shiftStarted") }); },
-    onError: (e: Error) => toast({ title: t("startError"), description: e.message, variant: "destructive" }),
+    onSuccess: () => { punchInProgressRef.current = false; queryClient.invalidateQueries({ queryKey: ["employee-dashboard"] }); toast({ title: t("shiftStarted") }); },
+    onError: (e: Error) => { punchInProgressRef.current = false; toast({ title: t("startError"), description: e.message, variant: "destructive" }); },
   });
 
   const clockOut = useMutation({
     mutationFn: async () => {
-      if (!geoPosition) throw new Error(t("gpsError"));
+      if (punchInProgressRef.current) throw new Error("Already processing");
+      punchInProgressRef.current = true;
+      if (!geoPosition) { punchInProgressRef.current = false; throw new Error(t("gpsError")); }
       const { data, error } = await supabase.functions.invoke("clock_out", { body: { lat: geoPosition.lat, lng: geoPosition.lng } });
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error);
+      if (error) { punchInProgressRef.current = false; throw error; }
+      if (!data.success) { punchInProgressRef.current = false; throw new Error(data.error); }
       return data;
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["employee-dashboard"] }); toast({ title: t("shiftEnded") }); },
-    onError: (e: Error) => toast({ title: t("endError"), description: e.message, variant: "destructive" }),
+    onSuccess: () => { punchInProgressRef.current = false; queryClient.invalidateQueries({ queryKey: ["employee-dashboard"] }); toast({ title: t("shiftEnded") }); },
+    onError: (e: Error) => { punchInProgressRef.current = false; toast({ title: t("endError"), description: e.message, variant: "destructive" }); },
   });
 
   const isClockedIn = data?.current_status === "clocked_in";
