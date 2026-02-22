@@ -108,9 +108,9 @@ export default function EmployeeDashboard() {
     queryKey: ["user-location", profile?.id],
     queryFn: async () => {
       if (!profile?.id) return null;
-      const { data: userData } = await supabase.from("users").select("location_id").eq("id", profile.id).single();
-      if (!userData?.location_id) return null;
-      const { data: loc } = await supabase.from("locations").select("*").eq("id", userData.location_id).single();
+      const { data: userData } = await supabase.from("users").select("location_id" as any).eq("id", profile.id).single();
+      if (!(userData as any)?.location_id) return null;
+      const { data: loc } = await (supabase.from as any)("locations").select("*").eq("id", (userData as any).location_id).single();
       return loc as { id: string; name: string; lat: number; lng: number; error_margin_meters: number } | null;
     },
     enabled: !!profile?.id,
