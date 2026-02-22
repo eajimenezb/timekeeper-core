@@ -1,21 +1,28 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   Users,
-  TrendingUp,
   AlertCircle,
   CalendarDays,
   Clock,
   CircleDot,
   CheckCircle2,
   XCircle,
-  Timer,
+  UserPlus,
+  Pencil,
+  Archive,
+  RotateCcw,
+  ClipboardEdit,
+  X,
+  Save,
 } from "lucide-react";
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, enUS } from "date-fns/locale";
 import {
   BarChart,
   Bar,
@@ -33,6 +40,7 @@ function formatHours(h: number) {
 }
 
 function LiveClock() {
+  const { lang } = useLanguage();
   const [time, setTime] = useState(new Date());
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000);
@@ -40,13 +48,26 @@ function LiveClock() {
   }, []);
   return (
     <span className="font-mono text-sm font-semibold text-muted-foreground tabular-nums">
-      {time.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
+      {time.toLocaleTimeString(lang === "es" ? "es-CO" : "en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
     </span>
   );
 }
 
 export default function AdminDashboard() {
   const { profile } = useAuth();
+  const { t, lang } = useLanguage();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const dateFnsLocale = lang === "es" ? es : enUS;
+
+  // Modals
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<any>(null);
+  const [empForm, setEmpForm] = useState({ full_name: "", email: "", role: "employee" });
+
+  const [showPunchModal, setShowPunchModal] = useState(false);
+  const [editingPunch, setEditingPunch] = useState<any>(null);
+  const [punchForm, setPunchForm] = useState({ clock_in_at: "", clock_out_at: "" });
 
   const { data: adminData, isLoading } = useQuery({
     queryKey: ["admin-dashboard"],
@@ -55,7 +76,7 @@ export default function AdminDashboard() {
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
       return data.data as {
-        employees: { id: string; full_name: string; email: string; role: string }[];
+        employees: { id: string; full_name: string; email: string; role: string; is_active: boolean }[];
         punches: any[];
         total_hours_per_employee: { user_id: string; total_hours: number }[];
       };
@@ -73,33 +94,23 @@ export default function AdminDashboard() {
   });
 
   const firstName = profile?.full_name?.split(" ")[0] || profile?.email?.split("@")[0] || "Admin";
-  const totalEmployees = adminData?.employees?.length ?? 0;
+  const totalEmployees = adminData?.employees?.filter((e) => e.is_active !== false).length ?? 0;
   const activePunches = adminData?.punches?.filter((p: any) => p.status === "active").length ?? 0;
-  const completedToday = adminData?.punches?.filter(
-    (p: any) => p.status === "completed" && p.clock_in_at && new Date(p.clock_in_at).toDateString() === new Date().toDateString()
-  ).length ?? 0;
 
-  // Compute efficiency: employees who punched today / total employees
-  const todayPunchUsers = new Set(
-    adminData?.punches
-      ?.filter((p: any) => p.clock_in_at && new Date(p.clock_in_at).toDateString() === new Date().toDateString())
-      .map((p: any) => p.user_id) ?? []
-  );
-  const efficiency = totalEmployees > 0 ? Math.round((todayPunchUsers.size / totalEmployees) * 100) : 0;
-
-  // Delays: punches with clock_in_at after 9 AM today
   const delays = adminData?.punches?.filter((p: any) => {
     if (!p.clock_in_at) return false;
     const d = new Date(p.clock_in_at);
     return d.toDateString() === new Date().toDateString() && d.getHours() >= 9;
   }).length ?? 0;
 
-  // Trial days remaining
+  const todayPunches = adminData?.punches?.filter((p: any) =>
+    p.clock_in_at && new Date(p.clock_in_at).toDateString() === new Date().toDateString()
+  ).length ?? 0;
+
   const trialDaysLeft = companyData?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(companyData.trial_ends_at).getTime() - Date.now()) / 86400000))
     : null;
 
-  // Chart: daily attendance for the last 7 days
   const chartData = (() => {
     const days: { name: string; asistencias: number }[] = [];
     for (let i = 6; i >= 0; i--) {
@@ -110,10 +121,7 @@ export default function AdminDashboard() {
         adminData?.punches?.filter((p: any) => p.clock_in_at && new Date(p.clock_in_at).toDateString() === dateStr)
           .map((p: any) => p.user_id) ?? []
       ).size;
-      days.push({
-        name: format(d, "EEE", { locale: es }),
-        asistencias: count,
-      });
+      days.push({ name: format(d, "EEE", { locale: dateFnsLocale }), asistencias: count });
     }
     return days;
   })();
@@ -123,7 +131,6 @@ export default function AdminDashboard() {
     return emp?.full_name || emp?.email || uid.slice(0, 8);
   };
 
-  // Get latest punch per employee for live monitoring
   const latestPunches = (() => {
     if (!adminData?.punches || !adminData?.employees) return [];
     const map = new Map<string, any>();
@@ -132,11 +139,99 @@ export default function AdminDashboard() {
         map.set(p.user_id, p);
       }
     }
-    return adminData.employees.map((emp) => ({
-      ...emp,
-      lastPunch: map.get(emp.id) ?? null,
-    }));
+    return adminData.employees.map((emp) => ({ ...emp, lastPunch: map.get(emp.id) ?? null }));
   })();
+
+  // Toggle employee active status (file/activate)
+  const toggleEmployeeActive = useMutation({
+    mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
+      const { error } = await supabase.from("users").update({ is_active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      toast({ title: lang === "es" ? "Empleado actualizado" : "Employee updated" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // Save employee (create or edit name/role)
+  const saveEmployee = useMutation({
+    mutationFn: async () => {
+      if (editingEmployee) {
+        const { error } = await supabase.from("users").update({ full_name: empForm.full_name, role: empForm.role }).eq("id", editingEmployee.id);
+        if (error) throw error;
+      } else {
+        // Create: sign up user via edge function would be needed for full flow.
+        // For now, insert directly (admin can add users to their company).
+        const { error } = await supabase.from("users").insert({
+          id: crypto.randomUUID(),
+          company_id: profile!.company_id,
+          email: empForm.email,
+          full_name: empForm.full_name,
+          role: empForm.role,
+          is_active: true,
+        });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      setShowEmployeeModal(false);
+      setEditingEmployee(null);
+      toast({ title: lang === "es" ? "Guardado" : "Saved" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  // Edit punch
+  const savePunch = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("admin_edit_punch", {
+        body: {
+          punch_id: editingPunch.id,
+          clock_in_at: punchForm.clock_in_at || undefined,
+          clock_out_at: punchForm.clock_out_at || undefined,
+        },
+      });
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
+      setShowPunchModal(false);
+      setEditingPunch(null);
+      toast({ title: lang === "es" ? "Marcación actualizada" : "Punch updated" });
+    },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+
+  const openCreateEmployee = () => {
+    setEditingEmployee(null);
+    setEmpForm({ full_name: "", email: "", role: "employee" });
+    setShowEmployeeModal(true);
+  };
+
+  const openEditEmployee = (emp: any) => {
+    setEditingEmployee(emp);
+    setEmpForm({ full_name: emp.full_name || "", email: emp.email, role: emp.role });
+    setShowEmployeeModal(true);
+  };
+
+  const openEditPunch = (punch: any) => {
+    setEditingPunch(punch);
+    setPunchForm({
+      clock_in_at: punch.clock_in_at ? new Date(punch.clock_in_at).toISOString().slice(0, 16) : "",
+      clock_out_at: punch.clock_out_at ? new Date(punch.clock_out_at).toISOString().slice(0, 16) : "",
+    });
+    setShowPunchModal(true);
+  };
+
+  // Recent completed punches for editing
+  const recentPunches = adminData?.punches
+    ?.filter((p: any) => p.status === "completed")
+    .sort((a: any, b: any) => new Date(b.clock_in_at).getTime() - new Date(a.clock_in_at).getTime())
+    .slice(0, 10) ?? [];
 
   return (
     <DashboardLayout role="admin">
@@ -145,57 +240,29 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between animate-fade-in-up">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
-              Hola, {firstName} 👋
+              {t("hello")}, {firstName} 👋
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">Panel Estratégico</p>
+            <p className="text-sm text-muted-foreground mt-1">{t("managerPanel")}</p>
           </div>
           <div className="flex items-center gap-3">
             {companyData?.subscription_status === "trialing" && trialDaysLeft !== null && (
               <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-warning/10 text-warning">
                 <Clock className="w-3 h-3" />
-                {trialDaysLeft} días de prueba
+                {trialDaysLeft} {t("trialDays")}
               </span>
             )}
             <LiveClock />
           </div>
         </div>
 
-        {/* Metric Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metric Cards — 3 cards, no efficiency */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
-            {
-              label: "Empleados Activos",
-              value: totalEmployees,
-              icon: Users,
-              color: "text-primary",
-              bg: "bg-primary/10",
-            },
-            {
-              label: "Eficiencia Hoy",
-              value: `${efficiency}%`,
-              icon: TrendingUp,
-              color: "text-success",
-              bg: "bg-success/10",
-            },
-            {
-              label: "Retrasos Hoy",
-              value: delays,
-              icon: AlertCircle,
-              color: "text-destructive",
-              bg: "bg-destructive/10",
-            },
-            {
-              label: "Licencia Restante",
-              value: trialDaysLeft !== null ? `${trialDaysLeft}d` : "∞",
-              icon: CalendarDays,
-              color: "text-warning",
-              bg: "bg-warning/10",
-            },
+            { label: t("activeEmployees"), value: totalEmployees, icon: Users, color: "text-primary", bg: "bg-primary/10" },
+            { label: t("delaysToday"), value: delays, icon: AlertCircle, color: "text-destructive", bg: "bg-destructive/10" },
+            { label: t("punchesToday"), value: todayPunches, icon: Clock, color: "text-warning", bg: "bg-warning/10" },
           ].map((card, i) => (
-            <div
-              key={card.label}
-              className={`glass-card rounded-[2rem] p-5 space-y-3 animate-fade-in-up stagger-${i + 1}`}
-            >
+            <div key={card.label} className={`glass-card rounded-[2rem] p-5 space-y-3 animate-fade-in-up stagger-${i + 1}`}>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{card.label}</span>
                 <div className={`w-8 h-8 rounded-xl ${card.bg} flex items-center justify-center`}>
@@ -209,85 +276,45 @@ export default function AdminDashboard() {
 
         {/* Chart + Live Monitoring */}
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          {/* Chart */}
-          <div className="lg:col-span-3 glass-card rounded-[2.5rem] p-6 animate-fade-in-up stagger-5">
-            <h2 className="text-base font-semibold text-foreground mb-4">Asistencia Semanal</h2>
+          <div className="lg:col-span-3 glass-card rounded-[2.5rem] p-6 animate-fade-in-up stagger-4">
+            <h2 className="text-base font-semibold text-foreground mb-4">{t("weeklyAttendance")}</h2>
             <div className="h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData} barCategoryGap="30%">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "1rem",
-                      fontSize: "12px",
-                      boxShadow: "0 8px 24px rgba(0,0,0,0.08)",
-                    }}
-                    labelStyle={{ fontWeight: 600 }}
-                    cursor={{ fill: "hsl(var(--muted))", radius: 8 } as any}
-                  />
-                  <Bar
-                    dataKey="asistencias"
-                    name="Asistencias"
-                    fill="hsl(var(--primary))"
-                    radius={[8, 8, 0, 0]}
-                  />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "1rem", fontSize: "12px", boxShadow: "0 8px 24px rgba(0,0,0,0.08)" }} labelStyle={{ fontWeight: 600 }} cursor={{ fill: "hsl(var(--muted))", radius: 8 } as any} />
+                  <Bar dataKey="asistencias" name={t("attendances")} fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Live Monitoring */}
-          <div className="lg:col-span-2 glass-card rounded-[2.5rem] p-6 animate-fade-in-up stagger-6">
-            <h2 className="text-base font-semibold text-foreground mb-4">Monitoreo en Vivo</h2>
+          <div className="lg:col-span-2 glass-card rounded-[2.5rem] p-6 animate-fade-in-up stagger-5">
+            <h2 className="text-base font-semibold text-foreground mb-4">{t("liveMonitoring")}</h2>
             <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
               {latestPunches.map((emp) => {
                 const isActive = emp.lastPunch?.status === "active";
                 const hasToday = emp.lastPunch?.clock_in_at && new Date(emp.lastPunch.clock_in_at).toDateString() === new Date().toDateString();
                 const wasLate = hasToday && new Date(emp.lastPunch.clock_in_at).getHours() >= 9;
-
                 let status: { label: string; color: string; Icon: typeof CheckCircle2 };
-                if (isActive) {
-                  status = { label: "Activo", color: "text-success", Icon: CircleDot };
-                } else if (hasToday && wasLate) {
-                  status = { label: "Retraso", color: "text-warning", Icon: AlertCircle };
-                } else if (hasToday) {
-                  status = { label: "Puntual", color: "text-success", Icon: CheckCircle2 };
-                } else {
-                  status = { label: "Ausente", color: "text-destructive", Icon: XCircle };
-                }
+                if (isActive) status = { label: t("active"), color: "text-success", Icon: CircleDot };
+                else if (hasToday && wasLate) status = { label: t("delay"), color: "text-warning", Icon: AlertCircle };
+                else if (hasToday) status = { label: t("punctual"), color: "text-success", Icon: CheckCircle2 };
+                else status = { label: t("absent"), color: "text-destructive", Icon: XCircle };
 
                 return (
                   <div key={emp.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/50 transition-colors">
-                    {/* Avatar */}
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-bold text-primary">
-                        {(emp.full_name || emp.email).charAt(0).toUpperCase()}
-                      </span>
+                      <span className="text-xs font-bold text-primary">{(emp.full_name || emp.email).charAt(0).toUpperCase()}</span>
                     </div>
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{emp.full_name || emp.email}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {emp.lastPunch?.clock_in_at
-                          ? format(new Date(emp.lastPunch.clock_in_at), "hh:mm a", { locale: es })
-                          : "Sin registro"}
+                        {emp.lastPunch?.clock_in_at ? format(new Date(emp.lastPunch.clock_in_at), "hh:mm a", { locale: dateFnsLocale }) : t("noRecord")}
                       </p>
                     </div>
-                    {/* Status */}
                     <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase ${status.color}`}>
                       <status.Icon className={`w-3 h-3 ${isActive ? "animate-pulse" : ""}`} />
                       {status.label}
@@ -295,18 +322,87 @@ export default function AdminDashboard() {
                   </div>
                 );
               })}
-              {latestPunches.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-6">Sin empleados registrados</p>
-              )}
+              {latestPunches.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">{t("noEmployees")}</p>}
             </div>
           </div>
         </div>
 
-        {/* Hours per Employee Table */}
+        {/* Employee Management */}
+        <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
+          <div className="px-6 lg:px-8 pt-6 pb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground">{t("manageEmployees")}</h2>
+            <button
+              onClick={openCreateEmployee}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              {t("createEmployee")}
+            </button>
+          </div>
+          <div className="px-4 lg:px-6 pb-6 space-y-2">
+            {adminData?.employees?.map((emp) => (
+              <div key={emp.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-muted/50 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="text-xs font-bold text-primary">{(emp.full_name || emp.email).charAt(0).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{emp.full_name || emp.email}</p>
+                  <p className="text-[10px] text-muted-foreground">{emp.email}</p>
+                </div>
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${emp.is_active !== false ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
+                  {emp.is_active !== false ? t("activeStatus") : t("filed")}
+                </span>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => openEditEmployee(emp)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t("editEmployee")}>
+                    <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                  <button
+                    onClick={() => toggleEmployeeActive.mutate({ id: emp.id, is_active: emp.is_active === false })}
+                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                    title={emp.is_active !== false ? t("fileEmployee") : t("activateEmployee")}
+                  >
+                    {emp.is_active !== false ? <Archive className="w-3.5 h-3.5 text-warning" /> : <RotateCcw className="w-3.5 h-3.5 text-success" />}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Punch Editing */}
+        <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
+          <div className="px-6 lg:px-8 pt-6 pb-4">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <ClipboardEdit className="w-4 h-4 text-primary" />
+              {t("editPunches")}
+            </h2>
+          </div>
+          <div className="px-4 lg:px-6 pb-6 space-y-2">
+            {recentPunches.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">{t("noRecordsYet")}</p>}
+            {recentPunches.map((punch: any) => (
+              <div key={punch.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-muted/50 transition-colors">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground">{getEmployeeName(punch.user_id)}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {punch.clock_in_at ? format(new Date(punch.clock_in_at), "EEE d MMM, hh:mm a", { locale: dateFnsLocale }) : "—"}
+                    {" → "}
+                    {punch.clock_out_at ? format(new Date(punch.clock_out_at), "hh:mm a", { locale: dateFnsLocale }) : "—"}
+                  </p>
+                </div>
+                <span className="text-xs font-semibold text-foreground">{punch.total_seconds ? formatHours(punch.total_seconds / 3600) : "—"}</span>
+                <button onClick={() => openEditPunch(punch)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t("editPunch")}>
+                  <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Hours per Employee */}
         {adminData?.total_hours_per_employee && adminData.total_hours_per_employee.length > 0 && (
           <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
             <div className="px-6 lg:px-8 pt-6 pb-4">
-              <h2 className="text-base font-semibold text-foreground">Horas por Empleado</h2>
+              <h2 className="text-base font-semibold text-foreground">{t("hoursPerEmployee")}</h2>
             </div>
             <div className="px-4 lg:px-6 pb-6 space-y-2">
               {adminData.total_hours_per_employee.map((row) => {
@@ -314,18 +410,11 @@ export default function AdminDashboard() {
                 const pct = (row.total_hours / maxHours) * 100;
                 return (
                   <div key={row.user_id} className="flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-muted/50 transition-colors">
-                    <span className="text-sm font-medium text-foreground min-w-[140px] truncate">
-                      {getEmployeeName(row.user_id)}
-                    </span>
+                    <span className="text-sm font-medium text-foreground min-w-[140px] truncate">{getEmployeeName(row.user_id)}</span>
                     <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all duration-700"
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${pct}%` }} />
                     </div>
-                    <span className="text-sm font-bold text-foreground min-w-[60px] text-right">
-                      {formatHours(row.total_hours)}
-                    </span>
+                    <span className="text-sm font-bold text-foreground min-w-[60px] text-right">{formatHours(row.total_hours)}</span>
                   </div>
                 );
               })}
@@ -333,6 +422,105 @@ export default function AdminDashboard() {
           </div>
         )}
       </div>
+
+      {/* Employee Modal */}
+      {showEmployeeModal && (
+        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowEmployeeModal(false)}>
+          <div className="bg-card rounded-[2rem] p-6 w-full max-w-md space-y-4 shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-foreground">{editingEmployee ? t("editEmployee") : t("createEmployee")}</h3>
+              <button onClick={() => setShowEmployeeModal(false)} className="p-1 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("name")}</label>
+                <input
+                  value={empForm.full_name}
+                  onChange={(e) => setEmpForm({ ...empForm, full_name: e.target.value })}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              {!editingEmployee && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("email")}</label>
+                  <input
+                    value={empForm.email}
+                    onChange={(e) => setEmpForm({ ...empForm, email: e.target.value })}
+                    type="email"
+                    className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("role")}</label>
+                <select
+                  value={empForm.role}
+                  onChange={(e) => setEmpForm({ ...empForm, role: e.target.value })}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                >
+                  <option value="employee">{t("employee")}</option>
+                  <option value="admin">{t("administrator")}</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowEmployeeModal(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">{t("cancel")}</button>
+              <button
+                onClick={() => saveEmployee.mutate()}
+                disabled={saveEmployee.isPending}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {t("save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Punch Edit Modal */}
+      {showPunchModal && editingPunch && (
+        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowPunchModal(false)}>
+          <div className="bg-card rounded-[2rem] p-6 w-full max-w-md space-y-4 shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-foreground">{t("editPunch")}</h3>
+              <button onClick={() => setShowPunchModal(false)} className="p-1 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-sm text-muted-foreground">{getEmployeeName(editingPunch.user_id)}</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("clockIn")}</label>
+                <input
+                  type="datetime-local"
+                  value={punchForm.clock_in_at}
+                  onChange={(e) => setPunchForm({ ...punchForm, clock_in_at: e.target.value })}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("clockOut")}</label>
+                <input
+                  type="datetime-local"
+                  value={punchForm.clock_out_at}
+                  onChange={(e) => setPunchForm({ ...punchForm, clock_out_at: e.target.value })}
+                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setShowPunchModal(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">{t("cancel")}</button>
+              <button
+                onClick={() => savePunch.mutate()}
+                disabled={savePunch.isPending}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {t("save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

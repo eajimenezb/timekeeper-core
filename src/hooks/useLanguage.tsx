@@ -1,0 +1,192 @@
+import { createContext, useContext, useState, ReactNode } from "react";
+
+type Lang = "es" | "en";
+
+const translations = {
+  es: {
+    hello: "Hola",
+    managerPanel: "Panel de Gerente",
+    employeePanel: "Panel de Empleado",
+    activeEmployees: "Empleados Activos",
+    delaysToday: "Retrasos Hoy",
+    remainingLicense: "Licencia Restante",
+    punchesToday: "Marcaciones Hoy",
+    weeklyAttendance: "Asistencia Semanal",
+    liveMonitoring: "Monitoreo en Vivo",
+    hoursPerEmployee: "Horas por Empleado",
+    noEmployees: "Sin empleados registrados",
+    active: "Activo",
+    punctual: "Puntual",
+    delay: "Retraso",
+    absent: "Ausente",
+    noRecord: "Sin registro",
+    trialDays: "días de prueba",
+    attendances: "Asistencias",
+    team: "Equipo",
+    reports: "Reportes",
+    settings: "Ajustes",
+    panel: "Panel",
+    clock: "Reloj",
+    history: "Historial",
+    closeSession: "Cerrar Sesión",
+    administrator: "Administrador",
+    employee: "Empleado",
+    // Employee dashboard
+    attendanceControl: "Control de asistencia",
+    onShift: "En Jornada",
+    offShift: "Fuera de Jornada",
+    startShift: "Iniciar",
+    endShift: "Finalizar",
+    shift: "Jornada",
+    today: "Hoy",
+    week: "Semana",
+    geofence: "Geovalla",
+    gpsVerified: "GPS Verificado",
+    lowAccuracy: "Baja Precisión",
+    acquiring: "Adquiriendo...",
+    detectedLocation: "Ubicación detectada",
+    errorMargin: "Margen de Error",
+    meters: "metros",
+    weeklyActivity: "Actividad Semanal",
+    pending: "Pendiente",
+    completed: "Completado",
+    loading: "Cargando...",
+    noRecordsYet: "Sin registros aún",
+    shiftStarted: "¡Jornada iniciada!",
+    shiftEnded: "¡Jornada finalizada!",
+    startError: "Error al iniciar",
+    endError: "Error al finalizar",
+    gpsError: "No se pudo obtener tu ubicación. Activa el GPS.",
+    browserNoGeo: "Tu navegador no soporta geolocalización.",
+    // Employee management
+    manageEmployees: "Gestión de Empleados",
+    createEmployee: "Crear Empleado",
+    editEmployee: "Editar Empleado",
+    fileEmployee: "Archivar",
+    activateEmployee: "Activar",
+    name: "Nombre",
+    email: "Email",
+    role: "Rol",
+    status: "Estado",
+    actions: "Acciones",
+    save: "Guardar",
+    cancel: "Cancelar",
+    filed: "Archivado",
+    activeStatus: "Activo",
+    editPunch: "Editar Marcación",
+    clockIn: "Entrada",
+    clockOut: "Salida",
+    editPunches: "Editar Marcaciones",
+    recentPunches: "Marcaciones Recientes",
+  },
+  en: {
+    hello: "Hello",
+    managerPanel: "Manager Panel",
+    employeePanel: "Employee Panel",
+    activeEmployees: "Active Employees",
+    delaysToday: "Delays Today",
+    remainingLicense: "Remaining License",
+    punchesToday: "Punches Today",
+    weeklyAttendance: "Weekly Attendance",
+    liveMonitoring: "Live Monitoring",
+    hoursPerEmployee: "Hours per Employee",
+    noEmployees: "No employees registered",
+    active: "Active",
+    punctual: "On Time",
+    delay: "Late",
+    absent: "Absent",
+    noRecord: "No record",
+    trialDays: "trial days",
+    attendances: "Attendance",
+    team: "Team",
+    reports: "Reports",
+    settings: "Settings",
+    panel: "Panel",
+    clock: "Clock",
+    history: "History",
+    closeSession: "Log Out",
+    administrator: "Administrator",
+    employee: "Employee",
+    attendanceControl: "Attendance control",
+    onShift: "On Shift",
+    offShift: "Off Shift",
+    startShift: "Start",
+    endShift: "End",
+    shift: "Shift",
+    today: "Today",
+    week: "Week",
+    geofence: "Geofence",
+    gpsVerified: "GPS Verified",
+    lowAccuracy: "Low Accuracy",
+    acquiring: "Acquiring...",
+    detectedLocation: "Detected location",
+    errorMargin: "Error Margin",
+    meters: "meters",
+    weeklyActivity: "Weekly Activity",
+    pending: "Pending",
+    completed: "Completed",
+    loading: "Loading...",
+    noRecordsYet: "No records yet",
+    shiftStarted: "Shift started!",
+    shiftEnded: "Shift ended!",
+    startError: "Error starting shift",
+    endError: "Error ending shift",
+    gpsError: "Could not get your location. Enable GPS.",
+    browserNoGeo: "Your browser does not support geolocation.",
+    manageEmployees: "Employee Management",
+    createEmployee: "Create Employee",
+    editEmployee: "Edit Employee",
+    fileEmployee: "File",
+    activateEmployee: "Activate",
+    name: "Name",
+    email: "Email",
+    role: "Role",
+    status: "Status",
+    actions: "Actions",
+    save: "Save",
+    cancel: "Cancel",
+    filed: "Filed",
+    activeStatus: "Active",
+    editPunch: "Edit Punch",
+    clockIn: "Clock In",
+    clockOut: "Clock Out",
+    editPunches: "Edit Punches",
+    recentPunches: "Recent Punches",
+  },
+} as const;
+
+type TranslationKey = keyof typeof translations.es;
+
+interface LanguageContextType {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  t: (key: TranslationKey) => string;
+}
+
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
+
+export function LanguageProvider({ children }: { children: ReactNode }) {
+  const [lang, setLang] = useState<Lang>(() => {
+    const saved = localStorage.getItem("app-lang");
+    return (saved === "en" || saved === "es") ? saved : "es";
+  });
+
+  const changeLang = (l: Lang) => {
+    setLang(l);
+    localStorage.setItem("app-lang", l);
+  };
+
+  const t = (key: TranslationKey): string => translations[lang][key] || key;
+
+  return (
+    <LanguageContext.Provider value={{ lang, setLang: changeLang, t }}>
+      {children}
+    </LanguageContext.Provider>
+  );
+}
+
+export function useLanguage() {
+  const ctx = useContext(LanguageContext);
+  if (!ctx) throw new Error("useLanguage must be used within LanguageProvider");
+  return ctx;
+}
