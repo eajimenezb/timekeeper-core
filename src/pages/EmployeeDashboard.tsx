@@ -169,7 +169,21 @@ export default function EmployeeDashboard() {
   const isClockedIn = data?.current_status === "clocked_in";
   const activeEntry = data?.history?.find((e: any) => e.status === "active");
   const elapsed = useLiveTimer(activeEntry?.clock_in_at, isClockedIn);
-  const gpsVerified = geoPosition && geoPosition.accuracy < maxErrorMargin;
+  // Haversine distance in meters
+  const getDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371000;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const distanceToWork = geoPosition && userLocation
+    ? getDistanceMeters(geoPosition.lat, geoPosition.lng, userLocation.lat, userLocation.lng)
+    : null;
+
+  const gpsVerified = geoPosition && distanceToWork !== null && distanceToWork < maxErrorMargin;
 
   return (
     <DashboardLayout role="employee">
@@ -257,10 +271,12 @@ export default function EmployeeDashboard() {
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">{t("errorMargin")}</span>
-                    <span className={`font-semibold ${geoPosition.accuracy < maxErrorMargin / 2 ? "text-success" : geoPosition.accuracy < maxErrorMargin ? "text-warning" : "text-destructive"}`}>±{Math.round(geoPosition.accuracy)} / {maxErrorMargin} {t("meters")}</span>
+                    <span className={`font-semibold ${(distanceToWork ?? Infinity) < maxErrorMargin / 2 ? "text-success" : (distanceToWork ?? Infinity) < maxErrorMargin ? "text-warning" : "text-destructive"}`}>
+                      {distanceToWork !== null ? `${Math.round(distanceToWork)}m` : "—"} / {maxErrorMargin} {t("meters")}
+                    </span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full rounded-full transition-all duration-500 ${geoPosition.accuracy < maxErrorMargin / 2 ? "bg-success" : geoPosition.accuracy < maxErrorMargin ? "bg-warning" : "bg-destructive"}`} style={{ width: `${Math.max(5, Math.min(100, ((maxErrorMargin - geoPosition.accuracy) / maxErrorMargin) * 100))}%` }} />
+                    <div className={`h-full rounded-full transition-all duration-500 ${(distanceToWork ?? Infinity) < maxErrorMargin / 2 ? "bg-success" : (distanceToWork ?? Infinity) < maxErrorMargin ? "bg-warning" : "bg-destructive"}`} style={{ width: `${Math.max(5, Math.min(100, distanceToWork !== null ? ((maxErrorMargin - distanceToWork) / maxErrorMargin) * 100 : 0))}%` }} />
                   </div>
                 </div>
               )}
