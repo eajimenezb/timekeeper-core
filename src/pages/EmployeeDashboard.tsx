@@ -103,6 +103,21 @@ export default function EmployeeDashboard() {
     },
   });
 
+  // Fetch user's assigned location for error margin
+  const { data: userLocation } = useQuery({
+    queryKey: ["user-location", profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return null;
+      const { data: userData } = await supabase.from("users").select("location_id").eq("id", profile.id).single();
+      if (!userData?.location_id) return null;
+      const { data: loc } = await supabase.from("locations").select("*").eq("id", userData.location_id).single();
+      return loc as { id: string; name: string; lat: number; lng: number; error_margin_meters: number } | null;
+    },
+    enabled: !!profile?.id,
+  });
+
+  const maxErrorMargin = userLocation?.error_margin_meters ?? 100;
+
   const clockIn = useMutation({
     mutationFn: async () => {
       if (punchInProgressRef.current) throw new Error("Already processing");
@@ -134,7 +149,7 @@ export default function EmployeeDashboard() {
   const isClockedIn = data?.current_status === "clocked_in";
   const activeEntry = data?.history?.find((e: any) => e.status === "active");
   const elapsed = useLiveTimer(activeEntry?.clock_in_at, isClockedIn);
-  const gpsVerified = geoPosition && geoPosition.accuracy < 100;
+  const gpsVerified = geoPosition && geoPosition.accuracy < maxErrorMargin;
 
   return (
     <DashboardLayout role="employee">
@@ -222,10 +237,10 @@ export default function EmployeeDashboard() {
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">{t("errorMargin")}</span>
-                    <span className={`font-semibold ${geoPosition.accuracy < 50 ? "text-success" : geoPosition.accuracy < 100 ? "text-warning" : "text-destructive"}`}>±{Math.round(geoPosition.accuracy)} {t("meters")}</span>
+                    <span className={`font-semibold ${geoPosition.accuracy < maxErrorMargin / 2 ? "text-success" : geoPosition.accuracy < maxErrorMargin ? "text-warning" : "text-destructive"}`}>±{Math.round(geoPosition.accuracy)} / {maxErrorMargin} {t("meters")}</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div className={`h-full rounded-full transition-all duration-500 ${geoPosition.accuracy < 50 ? "bg-success" : geoPosition.accuracy < 100 ? "bg-warning" : "bg-destructive"}`} style={{ width: `${Math.max(5, Math.min(100, 100 - geoPosition.accuracy))}%` }} />
+                    <div className={`h-full rounded-full transition-all duration-500 ${geoPosition.accuracy < maxErrorMargin / 2 ? "bg-success" : geoPosition.accuracy < maxErrorMargin ? "bg-warning" : "bg-destructive"}`} style={{ width: `${Math.max(5, Math.min(100, ((maxErrorMargin - geoPosition.accuracy) / maxErrorMargin) * 100))}%` }} />
                   </div>
                 </div>
               )}
