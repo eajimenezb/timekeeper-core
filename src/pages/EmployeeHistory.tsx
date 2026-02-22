@@ -126,14 +126,6 @@ export default function EmployeeHistory() {
             </h1>
             <p className="text-sm text-muted-foreground mt-1">{t("employeePanel")}</p>
           </div>
-          <button
-            onClick={exportCsv}
-            disabled={!entries || entries.length === 0}
-            className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            <Download className="w-4 h-4" />
-            {t("exportCsv")}
-          </button>
         </div>
 
         {/* Filters */}
@@ -285,17 +277,6 @@ export default function EmployeeHistory() {
           </div>
         </div>
 
-        {/* Mobile export */}
-        <div className="sm:hidden animate-fade-in-up stagger-4">
-          <button
-            onClick={exportCsv}
-            disabled={!entries || entries.length === 0}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            <Download className="w-4 h-4" />
-            {t("exportCsv")}
-          </button>
-        </div>
       </div>
     </DashboardLayout>
   );
