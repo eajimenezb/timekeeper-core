@@ -20,6 +20,7 @@ import {
   ClipboardEdit,
   X,
   Save,
+  ChevronDown,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es, enUS } from "date-fns/locale";
@@ -227,11 +228,24 @@ export default function AdminDashboard() {
     setShowPunchModal(true);
   };
 
-  // Recent completed punches for editing
-  const recentPunches = adminData?.punches
-    ?.filter((p: any) => p.status === "completed")
-    .sort((a: any, b: any) => new Date(b.clock_in_at).getTime() - new Date(a.clock_in_at).getTime())
-    .slice(0, 10) ?? [];
+  // Group completed punches by employee
+  const punchesByEmployee = (() => {
+    const completed = adminData?.punches
+      ?.filter((p: any) => p.status === "completed")
+      .sort((a: any, b: any) => new Date(b.clock_in_at).getTime() - new Date(a.clock_in_at).getTime()) ?? [];
+    const grouped: Record<string, any[]> = {};
+    for (const p of completed) {
+      if (!grouped[p.user_id]) grouped[p.user_id] = [];
+      grouped[p.user_id].push(p);
+    }
+    return grouped;
+  })();
+
+  const [expandedEmployees, setExpandedEmployees] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (uid: string) => {
+    setExpandedEmployees((prev) => ({ ...prev, [uid]: !prev[uid] }));
+  };
 
   return (
     <DashboardLayout role="admin">
@@ -378,23 +392,49 @@ export default function AdminDashboard() {
             </h2>
           </div>
           <div className="px-4 lg:px-6 pb-6 space-y-2">
-            {recentPunches.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">{t("noRecordsYet")}</p>}
-            {recentPunches.map((punch: any) => (
-              <div key={punch.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-muted/50 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-foreground">{getEmployeeName(punch.user_id)}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {punch.clock_in_at ? format(new Date(punch.clock_in_at), "EEE d MMM, hh:mm a", { locale: dateFnsLocale }) : "—"}
-                    {" → "}
-                    {punch.clock_out_at ? format(new Date(punch.clock_out_at), "hh:mm a", { locale: dateFnsLocale }) : "—"}
-                  </p>
+            {Object.keys(punchesByEmployee).length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">{t("noRecordsYet")}</p>
+            )}
+            {Object.entries(punchesByEmployee).map(([userId, punches]) => {
+              const isOpen = expandedEmployees[userId] ?? false;
+              const empName = getEmployeeName(userId);
+              return (
+                <div key={userId} className="rounded-2xl border border-border/50 overflow-hidden">
+                  <button
+                    onClick={() => toggleExpand(userId)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-muted/30 hover:bg-muted/60 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-bold text-primary">{empName.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-medium text-foreground">{empName}</p>
+                      <p className="text-[10px] text-muted-foreground">{punches.length} {lang === "es" ? "registros" : "records"}</p>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isOpen && (
+                    <div className="bg-card border-t border-border/50 divide-y divide-border/30">
+                      {punches.slice(0, 15).map((punch: any) => (
+                        <div key={punch.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-muted-foreground">
+                              {punch.clock_in_at ? format(new Date(punch.clock_in_at), "EEE d MMM, hh:mm a", { locale: dateFnsLocale }) : "—"}
+                              {" → "}
+                              {punch.clock_out_at ? format(new Date(punch.clock_out_at), "hh:mm a", { locale: dateFnsLocale }) : "—"}
+                            </p>
+                          </div>
+                          <span className="text-xs font-semibold text-foreground">{punch.total_seconds ? formatHours(punch.total_seconds / 3600) : "—"}</span>
+                          <button onClick={() => openEditPunch(punch)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t("editPunch")}>
+                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <span className="text-xs font-semibold text-foreground">{punch.total_seconds ? formatHours(punch.total_seconds / 3600) : "—"}</span>
-                <button onClick={() => openEditPunch(punch)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t("editPunch")}>
-                  <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
