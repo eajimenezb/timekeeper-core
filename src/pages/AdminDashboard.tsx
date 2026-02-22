@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,6 +76,29 @@ export default function AdminDashboard() {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<any>(null);
   const [locForm, setLocForm] = useState({ name: "", address: "", lat: "", lng: "", error_margin_meters: "100" });
+  const [geocoding, setGeocoding] = useState(false);
+
+  const geocodeAddress = useCallback(async (address: string) => {
+    if (!address.trim()) {
+      toast({ title: lang === "es" ? "Ingresa una dirección" : "Enter an address", variant: "destructive" });
+      return;
+    }
+    setGeocoding(true);
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`);
+      const results = await res.json();
+      if (results.length > 0) {
+        setLocForm(prev => ({ ...prev, lat: results[0].lat, lng: results[0].lon }));
+        toast({ title: lang === "es" ? "Coordenadas encontradas" : "Coordinates found" });
+      } else {
+        toast({ title: lang === "es" ? "No se encontró la dirección" : "Address not found", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: lang === "es" ? "Error al buscar dirección" : "Error searching address", variant: "destructive" });
+    } finally {
+      setGeocoding(false);
+    }
+  }, [lang, toast]);
 
   const { data: adminData, isLoading } = useQuery({
     queryKey: ["admin-dashboard"],
@@ -716,36 +739,29 @@ export default function AdminDashboard() {
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("address")}</label>
-                <input
-                  value={locForm.address}
-                  onChange={(e) => setLocForm({ ...locForm, address: e.target.value })}
-                  placeholder={lang === "es" ? "Dirección completa" : "Full address"}
-                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("latitude")}</label>
+                <div className="flex gap-2 mt-1">
                   <input
-                    value={locForm.lat}
-                    onChange={(e) => setLocForm({ ...locForm, lat: e.target.value })}
-                    type="number"
-                    step="any"
-                    placeholder="40.7128"
-                    className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    value={locForm.address}
+                    onChange={(e) => setLocForm({ ...locForm, address: e.target.value })}
+                    placeholder={lang === "es" ? "Dirección completa" : "Full address"}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); geocodeAddress(locForm.address); } }}
                   />
+                  <button
+                    type="button"
+                    onClick={() => geocodeAddress(locForm.address)}
+                    disabled={geocoding || !locForm.address.trim()}
+                    className="px-3 py-2.5 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {geocoding ? (lang === "es" ? "Buscando..." : "Searching...") : (lang === "es" ? "Buscar" : "Search")}
+                  </button>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("longitude")}</label>
-                  <input
-                    value={locForm.lng}
-                    onChange={(e) => setLocForm({ ...locForm, lng: e.target.value })}
-                    type="number"
-                    step="any"
-                    placeholder="-74.0060"
-                    className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  />
-                </div>
+                {locForm.lat && locForm.lng && (
+                  <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    {lang === "es" ? "Coordenadas:" : "Coordinates:"} {parseFloat(locForm.lat).toFixed(5)}, {parseFloat(locForm.lng).toFixed(5)}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("errorMarginMeters")}</label>
@@ -766,7 +782,7 @@ export default function AdminDashboard() {
               <button onClick={() => setShowLocationModal(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">{t("cancel")}</button>
               <button
                 onClick={() => saveLocation.mutate()}
-                disabled={saveLocation.isPending || !locForm.name || !locForm.lat || !locForm.lng}
+                disabled={saveLocation.isPending || !locForm.name || !locForm.lat || !locForm.lng || !locForm.address.trim()}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 <Save className="w-3.5 h-3.5" />
