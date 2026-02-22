@@ -56,6 +56,7 @@ export default function EmployeeDashboard() {
 
   const [geoPosition, setGeoPosition] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [detectedAddress, setDetectedAddress] = useState<string | null>(null);
 
   const firstName = profile?.full_name?.split(" ")[0] || profile?.email?.split("@")[0] || "Usuario";
 
@@ -69,6 +70,25 @@ export default function EmployeeDashboard() {
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
+
+  // Reverse geocode position to address
+  useEffect(() => {
+    if (!geoPosition) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${geoPosition.lat}&lon=${geoPosition.lng}&zoom=18&addressdetails=1`, { signal: controller.signal })
+        .then(r => r.json())
+        .then(data => {
+          if (data.display_name) {
+            // Shorten: take first 2-3 parts
+            const parts = data.display_name.split(", ");
+            setDetectedAddress(parts.slice(0, 3).join(", "));
+          }
+        })
+        .catch(() => {});
+    }, 1000); // debounce
+    return () => { clearTimeout(timeout); controller.abort(); };
+  }, [geoPosition?.lat?.toFixed(3), geoPosition?.lng?.toFixed(3)]);
 
   // Leaflet map
   useEffect(() => {
@@ -233,7 +253,7 @@ export default function EmployeeDashboard() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">{t("detectedLocation")}</span>
-                    <span className="font-mono text-foreground/80">{geoPosition.lat.toFixed(4)}, {geoPosition.lng.toFixed(4)}</span>
+                    <span className="font-mono text-foreground/80 text-right max-w-[200px] truncate">{detectedAddress || `${geoPosition.lat.toFixed(4)}, ${geoPosition.lng.toFixed(4)}`}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">{t("errorMargin")}</span>
