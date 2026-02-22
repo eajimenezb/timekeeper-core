@@ -28,6 +28,17 @@ function formatHours(h: number) {
   return `${hrs}h ${mins}m`;
 }
 
+function metersToFt(m: number) {
+  return Math.round(m * 3.28084);
+}
+
+function formatDistance(meters: number) {
+  const ft = meters * 3.28084;
+  if (ft < 1) return `${Math.round(meters * 39.3701)} in`;
+  if (ft >= 5280) return `${(ft / 5280).toFixed(1)} mi`;
+  return `${Math.round(ft)} ft`;
+}
+
 function LiveClock() {
   const { lang } = useLanguage();
   const [time, setTime] = useState(new Date());
@@ -278,7 +289,7 @@ export default function EmployeeDashboard() {
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">{t("errorMargin")}</span>
                     <span className={`font-semibold ${(distanceToWork ?? Infinity) < maxErrorMargin / 2 ? "text-success" : (distanceToWork ?? Infinity) < maxErrorMargin ? "text-warning" : "text-destructive"}`}>
-                      {distanceToWork !== null ? `${Math.round(distanceToWork)}m` : "—"} / {maxErrorMargin} {t("meters")}
+                      {distanceToWork !== null ? formatDistance(distanceToWork) : "—"} / {formatDistance(maxErrorMargin)}
                     </span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
