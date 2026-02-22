@@ -232,7 +232,7 @@ export default function AdminDashboard() {
         address: locForm.address || null,
         lat: parseFloat(locForm.lat),
         lng: parseFloat(locForm.lng),
-        error_margin_meters: parseInt(locForm.error_margin_meters) || 100,
+        error_margin_meters: Math.round((parseInt(locForm.error_margin_meters) || 328) / 3.28084),
         company_id: profile!.company_id,
       };
       if (editingLocation) {
@@ -267,13 +267,13 @@ export default function AdminDashboard() {
 
   const openCreateLocation = () => {
     setEditingLocation(null);
-    setLocForm({ name: "", address: "", lat: "", lng: "", error_margin_meters: "100" });
+    setLocForm({ name: "", address: "", lat: "", lng: "", error_margin_meters: "328" });
     setShowLocationModal(true);
   };
 
   const openEditLocation = (loc: any) => {
     setEditingLocation(loc);
-    setLocForm({ name: loc.name, address: loc.address || "", lat: String(loc.lat), lng: String(loc.lng), error_margin_meters: String(loc.error_margin_meters) });
+    setLocForm({ name: loc.name, address: loc.address || "", lat: String(loc.lat), lng: String(loc.lng), error_margin_meters: String(Math.round(loc.error_margin_meters * 3.28084)) });
     setShowLocationModal(true);
   };
 
@@ -588,7 +588,7 @@ export default function AdminDashboard() {
                   <p className="text-[10px] text-muted-foreground truncate">{loc.address || `${loc.lat}, ${loc.lng}`}</p>
                 </div>
                 <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-primary/10 text-primary">
-                  ±{loc.error_margin_meters}m
+                  ±{Math.round(loc.error_margin_meters * 3.28084)} ft
                 </span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => openEditLocation(loc)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
@@ -655,7 +655,7 @@ export default function AdminDashboard() {
                 >
                   <option value="">{t("noLocation")}</option>
                   {locations?.map((loc) => (
-                    <option key={loc.id} value={loc.id}>{loc.name} (±{loc.error_margin_meters}m)</option>
+                    <option key={loc.id} value={loc.id}>{loc.name} (±{Math.round(loc.error_margin_meters * 3.28084)} ft)</option>
                   ))}
                 </select>
               </div>
@@ -764,17 +764,17 @@ export default function AdminDashboard() {
                 )}
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("errorMarginMeters")}</label>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{lang === "es" ? "Margen de error (ft)" : "Error Margin (ft)"}</label>
                 <input
                   value={locForm.error_margin_meters}
                   onChange={(e) => setLocForm({ ...locForm, error_margin_meters: e.target.value })}
                   type="number"
-                  min="10"
-                  max="5000"
+                  min="30"
+                  max="16400"
                   className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  {lang === "es" ? "Radio en metros donde se permite marcar asistencia" : "Radius in meters where punching is allowed"}
+                  {lang === "es" ? "Radio en pies donde se permite marcar asistencia" : "Radius in feet where punching is allowed"}
                 </p>
               </div>
             </div>
