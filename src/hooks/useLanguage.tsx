@@ -115,6 +115,7 @@ const translations = {
     confirmDeleteLocation: "¿Estás seguro de eliminar esta ubicación?",
     assignedLocation: "Ubicación Asignada",
     noLocations: "Sin ubicaciones registradas",
+    poweredBy: "Desarrollado por",
   },
   en: {
     hello: "Hello",
@@ -226,6 +227,7 @@ const translations = {
     confirmDeleteLocation: "Are you sure you want to delete this location?",
     assignedLocation: "Assigned Location",
     noLocations: "No locations registered",
+    poweredBy: "Powered by",
   },
 } as const;
 
