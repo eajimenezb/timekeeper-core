@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import DashboardLayout from "@/components/DashboardLayout";
+import AdminSettings from "@/components/AdminSettings";
 import {
   Users,
   AlertCircle,
@@ -64,6 +66,7 @@ function LiveClock() {
 export default function AdminDashboard() {
   const { profile } = useAuth();
   const { t, lang } = useLanguage();
+  const { settings } = useCompanySettings();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const dateFnsLocale = lang === "es" ? es : enUS;
@@ -419,7 +422,7 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between animate-fade-in-up">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
-              {t("hello")}, {firstName} 👋
+              {t("hello")}, {firstName} {settings?.use_emojis !== false ? "👋" : ""}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">{t("managerPanel")}</p>
           </div>
@@ -693,6 +696,9 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
+
+        {/* Settings / Customization */}
+        <AdminSettings />
       </div>
 
       {/* Employee Modal */}
