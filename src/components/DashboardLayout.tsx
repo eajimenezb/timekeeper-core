@@ -1,5 +1,6 @@
 import { ReactNode, useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useLanguage } from "@/hooks/useLanguage";
 import {
   LayoutDashboard,
   Clock,
@@ -9,6 +10,7 @@ import {
   LogOut,
   ChevronLeft,
   Menu,
+  Globe,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -16,38 +18,36 @@ interface DashboardLayoutProps {
   role: "admin" | "employee";
 }
 
-const employeeNav = [
-  { icon: LayoutDashboard, label: "Panel", active: true },
-  { icon: Clock, label: "Reloj", active: false },
-  { icon: CalendarDays, label: "Historial", active: false },
-  { icon: Settings, label: "Ajustes", active: false },
-];
-
-const adminNav = [
-  { icon: LayoutDashboard, label: "Panel", active: true },
-  { icon: Users, label: "Equipo", active: false },
-  { icon: CalendarDays, label: "Reportes", active: false },
-  { icon: Settings, label: "Ajustes", active: false },
-];
-
 export default function DashboardLayout({ children, role }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth();
+  const { lang, setLang, t } = useLanguage();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const employeeNav = [
+    { icon: LayoutDashboard, label: t("panel"), active: true },
+    { icon: Clock, label: t("clock"), active: false },
+    { icon: CalendarDays, label: t("history"), active: false },
+    { icon: Settings, label: t("settings"), active: false },
+  ];
+
+  const adminNav = [
+    { icon: LayoutDashboard, label: t("panel"), active: true },
+    { icon: Users, label: t("team"), active: false },
+    { icon: CalendarDays, label: t("reports"), active: false },
+    { icon: Settings, label: t("settings"), active: false },
+  ];
+
   const nav = role === "admin" ? adminNav : employeeNav;
 
-  // Close mobile sidebar on resize
   useEffect(() => {
     const handler = () => { if (window.innerWidth >= 1024) setMobileOpen(false); };
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
   }, []);
 
-  const firstName = profile?.full_name?.split(" ")[0] || profile?.email?.split("@")[0] || "Usuario";
-
   return (
     <div className="min-h-screen flex bg-background">
-      {/* Mobile overlay */}
       {mobileOpen && (
         <div
           className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-40 lg:hidden animate-fade-in"
@@ -80,7 +80,7 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
 
         {/* Nav */}
         <nav className="flex-1 py-4 px-3 space-y-1">
-          {nav.map((item, i) => (
+          {nav.map((item) => (
             <button
               key={item.label}
               className={`
@@ -100,10 +100,19 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
 
         {/* Bottom */}
         <div className="p-3 border-t border-sidebar-border space-y-2">
+          {/* Language Toggle */}
+          <button
+            onClick={() => setLang(lang === "es" ? "en" : "es")}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-200"
+          >
+            <Globe className="w-5 h-5 shrink-0" />
+            {!collapsed && <span>{lang === "es" ? "English" : "Español"}</span>}
+          </button>
+
           {!collapsed && (
             <div className="px-3 py-2 animate-fade-in">
               <p className="text-xs font-medium text-sidebar-foreground/80 truncate">{profile?.full_name || profile?.email}</p>
-              <p className="text-[10px] text-sidebar-foreground/40 capitalize">{role === "admin" ? "Administrador" : "Empleado"}</p>
+              <p className="text-[10px] text-sidebar-foreground/40 capitalize">{role === "admin" ? t("administrator") : t("employee")}</p>
             </div>
           )}
           <button
@@ -111,11 +120,11 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/60 hover:text-destructive hover:bg-sidebar-accent/50 transition-all duration-200"
           >
             <LogOut className="w-5 h-5 shrink-0" />
-            {!collapsed && <span>Cerrar Sesión</span>}
+            {!collapsed && <span>{t("closeSession")}</span>}
           </button>
         </div>
 
-        {/* Collapse toggle (desktop only) */}
+        {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="hidden lg:flex absolute -right-3 top-20 w-6 h-6 rounded-full bg-card border border-border items-center justify-center shadow-sm hover:bg-muted transition-colors"
@@ -126,7 +135,6 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        {/* Top bar (mobile) */}
         <header className="lg:hidden flex items-center justify-between px-4 h-14 border-b border-border bg-card/50 backdrop-blur-lg sticky top-0 z-30">
           <button onClick={() => setMobileOpen(true)} className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors">
             <Menu className="w-5 h-5 text-muted-foreground" />
@@ -137,7 +145,12 @@ export default function DashboardLayout({ children, role }: DashboardLayoutProps
             </div>
             <span className="font-bold text-sm">Timekeeper</span>
           </div>
-          <div className="w-9" /> {/* Spacer */}
+          <button
+            onClick={() => setLang(lang === "es" ? "en" : "es")}
+            className="p-2 -mr-2 rounded-xl hover:bg-muted transition-colors"
+          >
+            <Globe className="w-5 h-5 text-muted-foreground" />
+          </button>
         </header>
 
         <main className="flex-1 overflow-y-auto">
