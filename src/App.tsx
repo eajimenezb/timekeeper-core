@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import Auth from "./pages/Auth";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
+import EmployeeHistory from "./pages/EmployeeHistory";
 import AdminDashboard from "./pages/AdminDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -37,6 +38,7 @@ const App = () => (
             <Routes>
               <Route path="/auth" element={<AuthRedirect />} />
               <Route path="/" element={<ProtectedRoute><RoleRouter /></ProtectedRoute>} />
+              <Route path="/history" element={<ProtectedRoute><EmployeeHistory /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthProvider>
