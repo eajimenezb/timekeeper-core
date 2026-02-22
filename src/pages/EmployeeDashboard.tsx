@@ -131,7 +131,7 @@ export default function EmployeeDashboard() {
       const { data: userData } = await supabase.from("users").select("location_id" as any).eq("id", profile.id).single();
       if (!(userData as any)?.location_id) return null;
       const { data: loc } = await (supabase.from as any)("locations").select("*").eq("id", (userData as any).location_id).single();
-      return loc as { id: string; name: string; lat: number; lng: number; error_margin_meters: number } | null;
+      return loc as { id: string; name: string; lat: number; lng: number; error_margin_meters: number; address: string | null } | null;
     },
     enabled: !!profile?.id,
   });
@@ -272,7 +272,7 @@ export default function EmployeeDashboard() {
                     {userLocation && (
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">{lang === "es" ? "Ubicación asignada" : "Assigned Location"}</span>
-                        <span className="font-mono text-foreground/80 text-right max-w-[200px] truncate">{userLocation.name}</span>
+                        <span className="font-mono text-foreground/80 text-right max-w-[200px] truncate">{userLocation.name}{userLocation.address ? ` — ${userLocation.address}` : ""}</span>
                       </div>
                     )}
                   <div className="flex items-center justify-between text-xs">
