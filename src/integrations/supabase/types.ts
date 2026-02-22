@@ -80,6 +80,8 @@ export type Database = {
       locations: {
         Row: {
           address: string | null
+          break_after_hours: number | null
+          break_duration_minutes: number | null
           company_id: string
           created_at: string
           error_margin_meters: number
@@ -87,10 +89,13 @@ export type Database = {
           is_active: boolean
           lat: number
           lng: number
+          logo_url: string | null
           name: string
         }
         Insert: {
           address?: string | null
+          break_after_hours?: number | null
+          break_duration_minutes?: number | null
           company_id: string
           created_at?: string
           error_margin_meters?: number
@@ -98,10 +103,13 @@ export type Database = {
           is_active?: boolean
           lat: number
           lng: number
+          logo_url?: string | null
           name: string
         }
         Update: {
           address?: string | null
+          break_after_hours?: number | null
+          break_duration_minutes?: number | null
           company_id?: string
           created_at?: string
           error_margin_meters?: number
@@ -109,6 +117,7 @@ export type Database = {
           is_active?: boolean
           lat?: number
           lng?: number
+          logo_url?: string | null
           name?: string
         }
         Relationships: [

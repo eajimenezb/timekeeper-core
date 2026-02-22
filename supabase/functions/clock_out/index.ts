@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
 
     const { data: userRow } = await serviceClient
       .from("users")
-      .select("role, company_id, is_active")
+      .select("role, company_id, is_active, location_id")
       .eq("id", userId)
       .single();
 
@@ -90,7 +90,23 @@ Deno.serve(async (req) => {
 
     const now = new Date();
     const clockInTime = new Date(activeEntry.clock_in_at);
-    const totalSeconds = Math.floor((now.getTime() - clockInTime.getTime()) / 1000);
+    let totalSeconds = Math.floor((now.getTime() - clockInTime.getTime()) / 1000);
+
+    // Apply break deduction if location has break settings
+    if (userRow.location_id) {
+      const { data: loc } = await serviceClient
+        .from("locations")
+        .select("break_after_hours, break_duration_minutes")
+        .eq("id", userRow.location_id)
+        .single();
+
+      if (loc?.break_after_hours && loc?.break_duration_minutes) {
+        if (totalSeconds > loc.break_after_hours * 3600) {
+          totalSeconds -= loc.break_duration_minutes * 60;
+          if (totalSeconds < 0) totalSeconds = 0;
+        }
+      }
+    }
 
     const { data: updatedEntry, error: updateError } = await serviceClient
       .from("time_entries")
