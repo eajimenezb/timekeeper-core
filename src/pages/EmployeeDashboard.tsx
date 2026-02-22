@@ -264,11 +264,17 @@ export default function EmployeeDashboard() {
               </div>
               {geoError && <p className="text-xs text-destructive flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> {geoError}</p>}
               {geoPosition && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{t("detectedLocation")}</span>
-                    <span className="font-mono text-foreground/80 text-right max-w-[200px] truncate">{detectedAddress || `${geoPosition.lat.toFixed(4)}, ${geoPosition.lng.toFixed(4)}`}</span>
-                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{t("detectedLocation")}</span>
+                      <span className="font-mono text-foreground/80 text-right max-w-[200px] truncate">{detectedAddress || `${geoPosition.lat.toFixed(4)}, ${geoPosition.lng.toFixed(4)}`}</span>
+                    </div>
+                    {userLocation && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{lang === "es" ? "Ubicación asignada" : "Assigned Location"}</span>
+                        <span className="font-mono text-foreground/80 text-right max-w-[200px] truncate">{userLocation.name}</span>
+                      </div>
+                    )}
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">{t("errorMargin")}</span>
                     <span className={`font-semibold ${(distanceToWork ?? Infinity) < maxErrorMargin / 2 ? "text-success" : (distanceToWork ?? Infinity) < maxErrorMargin ? "text-warning" : "text-destructive"}`}>
