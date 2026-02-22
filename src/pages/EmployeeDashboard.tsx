@@ -158,8 +158,14 @@ export default function EmployeeDashboard() {
             )}
 
             <button
-              onClick={() => isClockedIn ? clockOut.mutate() : clockIn.mutate()}
-              disabled={clockIn.isPending || clockOut.isPending || !geoPosition}
+              onClick={() => {
+                if (!gpsVerified) {
+                  toast({ title: lang === "es" ? "Fuera de rango GPS" : "Outside GPS range", description: lang === "es" ? "Tu precisión GPS excede el margen de error permitido (100m). Acércate a una zona con mejor señal." : "Your GPS accuracy exceeds the allowed error margin (100m). Move to an area with better signal.", variant: "destructive" });
+                  return;
+                }
+                isClockedIn ? clockOut.mutate() : clockIn.mutate();
+              }}
+              disabled={clockIn.isPending || clockOut.isPending || !geoPosition || !gpsVerified}
               className={`group relative w-40 h-40 lg:w-48 lg:h-48 rounded-full flex flex-col items-center justify-center text-white font-bold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 hover:scale-105 hover:shadow-2xl ${isClockedIn ? "bg-gradient-to-br from-destructive to-destructive/80 shadow-[0_8px_32px_hsl(347,77%,50%,0.3)]" : "bg-gradient-to-br from-primary to-primary/80 shadow-[0_8px_32px_hsl(234,89%,64%,0.3)]"}`}
             >
               {isClockedIn ? (
