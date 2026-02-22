@@ -2,6 +2,8 @@ import { ReactNode, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Clock,
@@ -12,6 +14,7 @@ import {
   ChevronLeft,
   Menu,
   Globe,
+  Building2,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -26,6 +29,35 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Fetch company name
+  const { data: company } = useQuery({
+    queryKey: ["company-info", profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return null;
+      const { data } = await supabase.from("companies").select("name").eq("id", profile.company_id).single();
+      return data as { name: string } | null;
+    },
+    enabled: !!profile?.company_id,
+  });
+
+  // Fetch first location logo for branding
+  const { data: brandLogo } = useQuery({
+    queryKey: ["brand-logo", profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return null;
+      const { data } = await (supabase.from as any)("locations")
+        .select("logo_url")
+        .eq("company_id", profile.company_id)
+        .not("logo_url", "is", null)
+        .limit(1)
+        .single();
+      return data?.logo_url as string | null;
+    },
+    enabled: !!profile?.company_id,
+  });
+
+  const companyName = company?.name || "Company";
 
   const employeeNav = [
     { icon: LayoutDashboard, label: t("panel"), id: "panel", path: "/" },
@@ -69,14 +101,18 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
           ${mobileOpen ? "w-64 translate-x-0" : "-translate-x-full lg:translate-x-0"}
         `}
       >
-        {/* Logo */}
+        {/* Company Logo */}
         <div className="flex items-center gap-3 px-5 h-16 border-b border-sidebar-border shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
-            <Clock className="w-5 h-5 text-primary-foreground" />
-          </div>
+          {brandLogo ? (
+            <img src={brandLogo} alt={companyName} className="w-9 h-9 rounded-xl object-cover shrink-0" />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
+              <Building2 className="w-5 h-5 text-primary-foreground" />
+            </div>
+          )}
           {!collapsed && (
-            <span className="font-bold text-lg text-sidebar-accent-foreground tracking-tight animate-fade-in">
-              Timekeeper
+            <span className="font-bold text-lg text-sidebar-accent-foreground tracking-tight animate-fade-in truncate">
+              {companyName}
             </span>
           )}
         </div>
@@ -126,6 +162,15 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
             <LogOut className="w-5 h-5 shrink-0" />
             {!collapsed && <span>{t("closeSession")}</span>}
           </button>
+
+          {/* Powered by */}
+          {!collapsed && (
+            <div className="px-3 pt-2 animate-fade-in">
+              <p className="text-[10px] text-sidebar-foreground/30 flex items-center gap-1">
+                {t("poweredBy")} <Clock className="w-3 h-3 inline" /> <span className="font-semibold">Timekeeper</span>
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Collapse toggle */}
@@ -144,10 +189,14 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
             <Menu className="w-5 h-5 text-muted-foreground" />
           </button>
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-              <Clock className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-sm">Timekeeper</span>
+            {brandLogo ? (
+              <img src={brandLogo} alt={companyName} className="w-7 h-7 rounded-lg object-cover" />
+            ) : (
+              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
+                <Building2 className="w-4 h-4 text-primary-foreground" />
+              </div>
+            )}
+            <span className="font-bold text-sm truncate max-w-[140px]">{companyName}</span>
           </div>
           <button
             onClick={() => setLang(lang === "es" ? "en" : "es")}
