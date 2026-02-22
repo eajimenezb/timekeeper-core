@@ -139,7 +139,31 @@ Deno.serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-      sanitizedUpdates.total_seconds = Math.floor(diffMs / 1000);
+      let totalSecs = Math.floor(diffMs / 1000);
+
+      // Apply break deduction based on user's assigned location
+      const { data: entryUser } = await serviceClient
+        .from("users")
+        .select("location_id")
+        .eq("id", existingEntry.user_id)
+        .single();
+
+      if (entryUser?.location_id) {
+        const { data: loc } = await serviceClient
+          .from("locations")
+          .select("break_after_hours, break_duration_minutes")
+          .eq("id", entryUser.location_id)
+          .single();
+
+        if (loc?.break_after_hours && loc?.break_duration_minutes) {
+          if (totalSecs > loc.break_after_hours * 3600) {
+            totalSecs -= loc.break_duration_minutes * 60;
+            if (totalSecs < 0) totalSecs = 0;
+          }
+        }
+      }
+
+      sanitizedUpdates.total_seconds = totalSecs;
     }
 
     // --- Audit log (old state) ---

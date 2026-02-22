@@ -24,6 +24,9 @@ import {
   MapPin,
   Plus,
   Trash2,
+  Upload,
+  Image,
+  Coffee,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es, enUS } from "date-fns/locale";
@@ -75,7 +78,10 @@ export default function AdminDashboard() {
 
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [editingLocation, setEditingLocation] = useState<any>(null);
-  const [locForm, setLocForm] = useState({ name: "", address: "", lat: "", lng: "", error_margin_meters: "100" });
+  const [locForm, setLocForm] = useState({ name: "", address: "", lat: "", lng: "", error_margin_meters: "100", break_after_hours: "", break_duration_minutes: "" });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
 
   const geocodeAddress = useCallback(async (address: string) => {
@@ -225,22 +231,47 @@ export default function AdminDashboard() {
     },
   });
 
+  const uploadLogo = async (locationId: string): Promise<string | null> => {
+    if (!logoFile) return editingLocation?.logo_url || null;
+    setUploadingLogo(true);
+    try {
+      const ext = logoFile.name.split(".").pop() || "png";
+      const path = `${profile!.company_id}/${locationId}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from("location-logos").upload(path, logoFile, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from("location-logos").getPublicUrl(path);
+      return urlData.publicUrl;
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
   const saveLocation = useMutation({
     mutationFn: async () => {
-      const payload = {
+      const breakAfter = locForm.break_after_hours ? parseFloat(locForm.break_after_hours) : null;
+      const breakDuration = locForm.break_duration_minutes ? parseInt(locForm.break_duration_minutes) : null;
+      const payload: any = {
         name: locForm.name,
         address: locForm.address || null,
         lat: parseFloat(locForm.lat),
         lng: parseFloat(locForm.lng),
         error_margin_meters: Math.round((parseInt(locForm.error_margin_meters) || 328) / 3.28084),
         company_id: profile!.company_id,
+        break_after_hours: breakAfter,
+        break_duration_minutes: breakDuration,
       };
       if (editingLocation) {
+        const logoUrl = await uploadLogo(editingLocation.id);
+        payload.logo_url = logoUrl;
         const { error } = await (supabase.from as any)("locations").update(payload).eq("id", editingLocation.id);
         if (error) throw error;
       } else {
-        const { error } = await (supabase.from as any)("locations").insert(payload);
+        const { data: inserted, error } = await (supabase.from as any)("locations").insert(payload).select("id").single();
         if (error) throw error;
+        if (logoFile && inserted?.id) {
+          const logoUrl = await uploadLogo(inserted.id);
+          await (supabase.from as any)("locations").update({ logo_url: logoUrl }).eq("id", inserted.id);
+        }
       }
     },
     onSuccess: () => {
@@ -248,6 +279,8 @@ export default function AdminDashboard() {
       queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
       setShowLocationModal(false);
       setEditingLocation(null);
+      setLogoFile(null);
+      setLogoPreview(null);
       toast({ title: t("locationSaved") });
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
@@ -267,13 +300,25 @@ export default function AdminDashboard() {
 
   const openCreateLocation = () => {
     setEditingLocation(null);
-    setLocForm({ name: "", address: "", lat: "", lng: "", error_margin_meters: "328" });
+    setLocForm({ name: "", address: "", lat: "", lng: "", error_margin_meters: "328", break_after_hours: "", break_duration_minutes: "" });
+    setLogoFile(null);
+    setLogoPreview(null);
     setShowLocationModal(true);
   };
 
   const openEditLocation = (loc: any) => {
     setEditingLocation(loc);
-    setLocForm({ name: loc.name, address: loc.address || "", lat: String(loc.lat), lng: String(loc.lng), error_margin_meters: String(Math.round(loc.error_margin_meters * 3.28084)) });
+    setLocForm({
+      name: loc.name,
+      address: loc.address || "",
+      lat: String(loc.lat),
+      lng: String(loc.lng),
+      error_margin_meters: String(Math.round(loc.error_margin_meters * 3.28084)),
+      break_after_hours: loc.break_after_hours != null ? String(loc.break_after_hours) : "",
+      break_duration_minutes: loc.break_duration_minutes != null ? String(loc.break_duration_minutes) : "",
+    });
+    setLogoFile(null);
+    setLogoPreview(loc.logo_url || null);
     setShowLocationModal(true);
   };
 
@@ -580,16 +625,28 @@ export default function AdminDashboard() {
             )}
             {locations?.map((loc) => (
               <div key={loc.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-muted/50 transition-colors">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <MapPin className="w-4 h-4 text-primary" />
-                </div>
+                {loc.logo_url ? (
+                  <img src={loc.logo_url} alt={loc.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <MapPin className="w-4 h-4 text-primary" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{loc.name}</p>
                   <p className="text-[10px] text-muted-foreground truncate">{loc.address || `${loc.lat}, ${loc.lng}`}</p>
                 </div>
-                <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-primary/10 text-primary">
-                  ±{Math.round(loc.error_margin_meters * 3.28084)} ft
-                </span>
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className="text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-primary/10 text-primary">
+                    ±{Math.round(loc.error_margin_meters * 3.28084)} ft
+                  </span>
+                  {loc.break_after_hours != null && loc.break_duration_minutes != null && (
+                    <span className="text-[10px] font-medium px-2.5 py-0.5 rounded-full bg-warning/10 text-warning flex items-center gap-1">
+                      <Coffee className="w-2.5 h-2.5" />
+                      {loc.break_duration_minutes}min {lang === "es" ? "después de" : "after"} {loc.break_after_hours}h
+                    </span>
+                  )}
+                </div>
                 <div className="flex items-center gap-1">
                   <button onClick={() => openEditLocation(loc)} className="p-1.5 rounded-lg hover:bg-muted transition-colors">
                     <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
@@ -775,6 +832,72 @@ export default function AdminDashboard() {
                 />
                 <p className="text-[10px] text-muted-foreground mt-1">
                   {lang === "es" ? "Radio en pies donde se permite marcar asistencia" : "Radius in feet where punching is allowed"}
+                </p>
+              </div>
+              {/* Logo Upload */}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{lang === "es" ? "Logo / Foto" : "Logo / Photo"}</label>
+                <div className="mt-1 flex items-center gap-3">
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="Logo" className="w-14 h-14 rounded-xl object-cover border border-border" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl bg-muted/50 border border-dashed border-border flex items-center justify-center">
+                      <Image className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                  )}
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/50 border border-border text-xs font-medium text-foreground hover:bg-muted transition-colors">
+                    <Upload className="w-3.5 h-3.5" />
+                    {lang === "es" ? "Subir imagen" : "Upload image"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setLogoFile(file);
+                          setLogoPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+              {/* Break/Lunch Deduction */}
+              <div className="pt-2 border-t border-border/50">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Coffee className="w-3 h-3" />
+                  {lang === "es" ? "Descuento de descanso / almuerzo" : "Break / Lunch Deduction"}
+                </label>
+                <div className="grid grid-cols-2 gap-3 mt-2">
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">{lang === "es" ? "Después de (horas)" : "After (hours)"}</label>
+                    <input
+                      value={locForm.break_after_hours}
+                      onChange={(e) => setLocForm({ ...locForm, break_after_hours: e.target.value })}
+                      type="number"
+                      min="1"
+                      max="24"
+                      step="0.5"
+                      placeholder="5"
+                      className="w-full mt-0.5 px-3 py-2 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-muted-foreground">{lang === "es" ? "Duración (minutos)" : "Duration (minutes)"}</label>
+                    <input
+                      value={locForm.break_duration_minutes}
+                      onChange={(e) => setLocForm({ ...locForm, break_duration_minutes: e.target.value })}
+                      type="number"
+                      min="5"
+                      max="120"
+                      placeholder="30"
+                      className="w-full mt-0.5 px-3 py-2 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  {lang === "es" ? "Se descontará automáticamente del tiempo diario" : "Will be automatically deducted from daily time"}
                 </p>
               </div>
             </div>
