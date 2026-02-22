@@ -2,6 +2,7 @@ import { ReactNode, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useLanguage } from "@/hooks/useLanguage";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -15,6 +16,8 @@ import {
   Menu,
   Globe,
   Building2,
+  Sun,
+  Moon,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -26,6 +29,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children, role, activePage = "panel" }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth();
   const { lang, setLang, t } = useLanguage();
+  const { darkMode, setDarkMode } = useCompanySettings();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -147,6 +151,15 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
           >
             <Globe className="w-5 h-5 shrink-0" />
             {!collapsed && <span>{lang === "es" ? "English" : "Español"}</span>}
+          </button>
+
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-all duration-200"
+          >
+            {darkMode ? <Sun className="w-5 h-5 shrink-0" /> : <Moon className="w-5 h-5 shrink-0" />}
+            {!collapsed && <span>{darkMode ? (lang === "es" ? "Modo claro" : "Light mode") : (lang === "es" ? "Modo oscuro" : "Dark mode")}</span>}
           </button>
 
           {!collapsed && (

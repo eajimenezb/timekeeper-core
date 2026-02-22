@@ -77,6 +77,50 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          button_shape: string
+          company_id: string
+          created_at: string
+          id: string
+          primary_color: string
+          secondary_font: string
+          updated_at: string
+          use_emojis: boolean
+          welcome_message: string
+        }
+        Insert: {
+          button_shape?: string
+          company_id: string
+          created_at?: string
+          id?: string
+          primary_color?: string
+          secondary_font?: string
+          updated_at?: string
+          use_emojis?: boolean
+          welcome_message?: string
+        }
+        Update: {
+          button_shape?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          primary_color?: string
+          secondary_font?: string
+          updated_at?: string
+          use_emojis?: boolean
+          welcome_message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null

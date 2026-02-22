@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
+import { CompanySettingsProvider } from "@/hooks/useCompanySettings";
 import Auth from "./pages/Auth";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import EmployeeHistory from "./pages/EmployeeHistory";
@@ -35,12 +36,14 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
+            <CompanySettingsProvider>
             <Routes>
               <Route path="/auth" element={<AuthRedirect />} />
               <Route path="/" element={<ProtectedRoute><RoleRouter /></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><EmployeeHistory /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </CompanySettingsProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>
