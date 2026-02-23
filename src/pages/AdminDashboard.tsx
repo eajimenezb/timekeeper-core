@@ -226,6 +226,7 @@ export default function AdminDashboard() {
             full_name: empForm.full_name,
             role: empForm.role,
             location_id: locationId,
+            redirect_to: window.location.origin + "/set-password",
           },
         });
         if (res.error) throw new Error(res.error.message || "Failed to create employee");

@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const { email, full_name, role, location_id } = await req.json();
+    const { email, full_name, role, location_id, redirect_to } = await req.json();
 
     if (!email || !role) {
       return new Response(
@@ -200,6 +200,9 @@ Deno.serve(async (req) => {
     const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
       type: "recovery",
       email,
+      options: {
+        redirectTo: redirect_to || Deno.env.get("SUPABASE_URL")!,
+      },
     });
 
     const setupLink = linkData?.properties?.action_link || null;

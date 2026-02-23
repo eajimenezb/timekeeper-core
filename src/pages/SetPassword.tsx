@@ -55,9 +55,11 @@ export default function SetPassword() {
       await supabase.from("users").update({ is_confirmed: true } as any).eq("id", user.id);
     }
 
-    toast({ title: "Password set successfully!" });
+    // Sign out so they can log in fresh with their new password
+    await supabase.auth.signOut();
+    toast({ title: "Password set successfully! Please log in." });
     setLoading(false);
-    navigate("/");
+    navigate("/auth");
   };
 
   if (!ready) {
