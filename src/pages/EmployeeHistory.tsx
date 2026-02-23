@@ -209,13 +209,13 @@ export default function EmployeeHistory() {
           <div className="px-6 lg:px-8 pt-6 pb-4">
             <h2 className="text-base font-semibold text-foreground">{t("history")}</h2>
           </div>
-          <div className="px-4 lg:px-6 pb-6">
+          <div className="px-2 sm:px-4 lg:px-6 pb-6 overflow-x-auto">
             {isLoading ? (
               <p className="text-sm text-muted-foreground text-center py-8">{t("loading")}</p>
             ) : entries && entries.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-[480px]">
                 {/* Header row */}
-                <div className="hidden sm:flex items-center gap-3 lg:gap-4 px-4 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                <div className="flex items-center gap-3 lg:gap-4 px-4 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                   <div className="min-w-[80px]">{t("date")}</div>
                   <div className="min-w-[90px]">{t("entry")}</div>
                   <div className="w-[14px]" />
@@ -251,7 +251,7 @@ export default function EmployeeHistory() {
                         {entry.total_seconds ? formatHours(entry.total_seconds / 3600) : "—"}
                       </span>
                     </div>
-                    <div className="hidden sm:block min-w-[80px] text-center">
+                    <div className="min-w-[80px] text-center">
                       {entry.status === "active" ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-success/10 text-success">
                           <CircleDot className="w-2.5 h-2.5 animate-pulse" /> {t("active")}
