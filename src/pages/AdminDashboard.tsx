@@ -192,7 +192,9 @@ export default function AdminDashboard() {
         map.set(p.user_id, p);
       }
     }
-    return adminData.employees.map((emp) => ({ ...emp, lastPunch: map.get(emp.id) ?? null }));
+    return adminData.employees
+      .filter((emp) => emp.role !== "admin")
+      .map((emp) => ({ ...emp, lastPunch: map.get(emp.id) ?? null }));
   })();
 
   // Toggle employee active status (file/activate)
