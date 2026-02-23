@@ -17,10 +17,33 @@ export default function SetPassword() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Check if we already have a session (from recovery link)
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const verifyToken = async () => {
+      // Parse token_hash from URL hash (e.g., #token_hash=xxx&type=recovery)
+      const hash = window.location.hash.substring(1);
+      const params = new URLSearchParams(hash);
+      const tokenHash = params.get("token_hash");
+      const type = params.get("type");
+
+      if (tokenHash && type === "recovery") {
+        // Verify the token client-side, bypassing server redirect
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: "recovery",
+        });
+        if (!error) {
+          setReady(true);
+          // Clean the URL hash
+          window.history.replaceState(null, "", window.location.pathname);
+          return;
+        }
+      }
+
+      // Fallback: check existing session
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) setReady(true);
-    });
+    };
+
+    verifyToken();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) {

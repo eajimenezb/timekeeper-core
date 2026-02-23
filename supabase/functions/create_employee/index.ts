@@ -200,12 +200,14 @@ Deno.serve(async (req) => {
     const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
       type: "recovery",
       email,
-      options: {
-        redirectTo: redirect_to || Deno.env.get("SUPABASE_URL")!,
-      },
     });
 
-    const setupLink = linkData?.properties?.action_link || null;
+    // Build a direct client-side link that bypasses Supabase server redirect
+    let setupLink: string | null = null;
+    if (linkData?.properties?.hashed_token) {
+      const baseUrl = redirect_to || Deno.env.get("SUPABASE_URL")!;
+      setupLink = `${baseUrl}#token_hash=${linkData.properties.hashed_token}&type=recovery`;
+    }
 
     return new Response(
       JSON.stringify({ success: true, user_id: newUserId, setup_link: setupLink }),
