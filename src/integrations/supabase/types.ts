@@ -251,6 +251,7 @@ export type Database = {
           full_name: string | null
           id: string
           is_active: boolean
+          is_confirmed: boolean
           location_id: string | null
           role: string
         }
@@ -261,6 +262,7 @@ export type Database = {
           full_name?: string | null
           id: string
           is_active?: boolean
+          is_confirmed?: boolean
           location_id?: string | null
           role: string
         }
@@ -271,6 +273,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           is_active?: boolean
+          is_confirmed?: boolean
           location_id?: string | null
           role?: string
         }

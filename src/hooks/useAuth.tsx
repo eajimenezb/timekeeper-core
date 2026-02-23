@@ -29,9 +29,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
       .from("users")
-      .select("id, email, full_name, role, company_id")
+      .select("id, email, full_name, role, company_id, is_confirmed")
       .eq("id", userId)
       .single();
+    if (data && !(data as any).is_confirmed) {
+      // Mark as confirmed on first successful login
+      await supabase.from("users").update({ is_confirmed: true } as any).eq("id", userId);
+      (data as any).is_confirmed = true;
+    }
     setProfile(data);
   };
 

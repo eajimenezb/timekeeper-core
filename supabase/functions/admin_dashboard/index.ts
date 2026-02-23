@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     // Fetch employees in company
     const { data: employees } = await serviceClient
       .from("users")
-      .select("id, full_name, email, role, is_active, location_id")
+      .select("id, full_name, email, role, is_active, location_id, is_confirmed")
       .eq("company_id", companyId);
 
     // Build punches query
