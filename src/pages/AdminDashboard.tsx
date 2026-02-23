@@ -615,13 +615,47 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Punch Editing */}
+        {/* Hours per Employee */}
+        {adminData?.total_hours_per_employee && adminData.total_hours_per_employee.length > 0 && (
+          <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
+            <div className="px-6 lg:px-8 pt-6 pb-4">
+              <h2 className="text-base font-semibold text-foreground">{t("hoursPerEmployee")}</h2>
+            </div>
+            <div className="px-4 lg:px-6 pb-6 space-y-2">
+              {adminData.total_hours_per_employee.map((row) => {
+                const maxHours = Math.max(...adminData.total_hours_per_employee.map((r) => r.total_hours), 1);
+                const pct = (row.total_hours / maxHours) * 100;
+                return (
+                  <div key={row.user_id} className="flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-muted/50 transition-colors">
+                    <span className="text-sm font-medium text-foreground min-w-[140px] truncate">{getEmployeeName(row.user_id)}</span>
+                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${pct}%` }} />
+                    </div>
+                    <span className="text-sm font-bold text-foreground min-w-[60px] text-right">{formatHours(row.total_hours)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        </>)}
+
+        {/* PUNCHES TAB */}
+        {activeTab === "punches" && (<>
         <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
-          <div className="px-6 lg:px-8 pt-6 pb-4">
+          <div className="px-6 lg:px-8 pt-6 pb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
               <ClipboardEdit className="w-4 h-4 text-primary" />
-              {t("editPunches")}
+              {lang === "es" ? "Marcaciones" : "Punches"}
             </h2>
+            <button
+              onClick={exportCsv}
+              disabled={!adminData?.punches || adminData.punches.length === 0}
+              className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">CSV</span>
+            </button>
           </div>
           <div className="px-4 lg:px-6 pb-6 space-y-2">
             {Object.keys(punchesByEmployee).length === 0 && (
@@ -669,30 +703,6 @@ export default function AdminDashboard() {
             })}
           </div>
         </div>
-
-        {/* Hours per Employee */}
-        {adminData?.total_hours_per_employee && adminData.total_hours_per_employee.length > 0 && (
-          <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
-            <div className="px-6 lg:px-8 pt-6 pb-4">
-              <h2 className="text-base font-semibold text-foreground">{t("hoursPerEmployee")}</h2>
-            </div>
-            <div className="px-4 lg:px-6 pb-6 space-y-2">
-              {adminData.total_hours_per_employee.map((row) => {
-                const maxHours = Math.max(...adminData.total_hours_per_employee.map((r) => r.total_hours), 1);
-                const pct = (row.total_hours / maxHours) * 100;
-                return (
-                  <div key={row.user_id} className="flex items-center gap-4 px-4 py-3 rounded-2xl hover:bg-muted/50 transition-colors">
-                    <span className="text-sm font-medium text-foreground min-w-[140px] truncate">{getEmployeeName(row.user_id)}</span>
-                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full bg-primary transition-all duration-700" style={{ width: `${pct}%` }} />
-                    </div>
-                    <span className="text-sm font-bold text-foreground min-w-[60px] text-right">{formatHours(row.total_hours)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
         </>)}
 
         {/* LOCATIONS TAB */}

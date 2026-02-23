@@ -19,6 +19,7 @@ import {
   Sun,
   Moon,
   MapPin,
+  ClipboardEdit,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -85,6 +86,7 @@ export default function DashboardLayout({ children, role, activePage = "panel", 
   const adminNav = [
     { icon: LayoutDashboard, label: t("panel"), id: "panel", path: "/" },
     { icon: Users, label: t("team"), id: "team", path: "/" },
+    { icon: ClipboardEdit, label: lang === "es" ? "Marcaciones" : "Punches", id: "punches", path: "/" },
     { icon: MapPin, label: t("locations") || "Locations", id: "locations", path: "/" },
     { icon: Settings, label: t("settings"), id: "settings", path: "/" },
   ];
