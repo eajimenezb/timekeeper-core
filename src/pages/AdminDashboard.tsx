@@ -216,16 +216,18 @@ export default function AdminDashboard() {
         const { error } = await supabase.from("users").update({ full_name: empForm.full_name, role: empForm.role, location_id: locationId } as any).eq("id", editingEmployee.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("users").insert({
-          id: crypto.randomUUID(),
-          company_id: profile!.company_id,
-          email: empForm.email,
-          full_name: empForm.full_name,
-          role: empForm.role,
-          is_active: true,
-          location_id: locationId,
-        } as any);
-        if (error) throw error;
+        // Use edge function to create auth user + profile
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await supabase.functions.invoke("create_employee", {
+          body: {
+            email: empForm.email,
+            full_name: empForm.full_name,
+            role: empForm.role,
+            location_id: locationId,
+          },
+        });
+        if (res.error) throw new Error(res.error.message || "Failed to create employee");
+        if (res.data && !res.data.success) throw new Error(res.data.error || "Failed to create employee");
       }
     },
     onSuccess: () => {
