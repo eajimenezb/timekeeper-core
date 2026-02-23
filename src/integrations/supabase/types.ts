@@ -51,6 +51,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          logo_url: string | null
           max_seats: number
           name: string
           plan_type: string
@@ -60,6 +61,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          logo_url?: string | null
           max_seats?: number
           name: string
           plan_type?: string
@@ -69,6 +71,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          logo_url?: string | null
           max_seats?: number
           name?: string
           plan_type?: string

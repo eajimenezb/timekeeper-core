@@ -45,21 +45,18 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
     enabled: !!profile?.company_id,
   });
 
-  // Fetch first location logo for branding
-  const { data: brandLogo } = useQuery({
-    queryKey: ["brand-logo", profile?.company_id],
+  // Fetch company logo
+  const { data: companyLogo } = useQuery({
+    queryKey: ["company-logo", profile?.company_id],
     queryFn: async () => {
       if (!profile?.company_id) return null;
-      const { data } = await (supabase.from as any)("locations")
-        .select("logo_url")
-        .eq("company_id", profile.company_id)
-        .not("logo_url", "is", null)
-        .limit(1)
-        .single();
-      return data?.logo_url as string | null;
+      const { data } = await supabase.from("companies").select("logo_url").eq("id", profile.company_id).single();
+      return (data as any)?.logo_url as string | null;
     },
     enabled: !!profile?.company_id,
   });
+
+  const brandLogo = companyLogo || null;
 
   const companyName = company?.name || "Company";
 
