@@ -151,11 +151,7 @@ export default function AdminDashboard() {
   const totalEmployees = adminData?.employees?.filter((e) => e.is_active !== false).length ?? 0;
   const activePunches = adminData?.punches?.filter((p: any) => p.status === "active").length ?? 0;
 
-  const delays = adminData?.punches?.filter((p: any) => {
-    if (!p.clock_in_at) return false;
-    const d = new Date(p.clock_in_at);
-    return d.toDateString() === new Date().toDateString() && d.getHours() >= 9;
-  }).length ?? 0;
+  const outEmployees = totalEmployees - activePunches;
 
   const todayPunches = adminData?.punches?.filter((p: any) =>
     p.clock_in_at && new Date(p.clock_in_at).toDateString() === new Date().toDateString()
@@ -476,7 +472,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { label: t("activeEmployees"), value: totalEmployees, icon: Users, color: "text-primary", bg: "bg-primary/10" },
-            { label: t("delaysToday"), value: delays, icon: AlertCircle, color: "text-destructive", bg: "bg-destructive/10" },
+            { label: t("outEmployees"), value: outEmployees, icon: Clock, color: "text-warning", bg: "bg-warning/10" },
             { label: t("punchesToday"), value: todayPunches, icon: Clock, color: "text-warning", bg: "bg-warning/10" },
           ].map((card, i) => (
             <div key={card.label} className={`glass-card rounded-[2rem] p-5 space-y-3 animate-fade-in-up stagger-${i + 1}`}>
@@ -541,14 +537,11 @@ export default function AdminDashboard() {
                     <div className="space-y-1">
                       {grouped[locKey].map((emp) => {
                         const isActive = emp.lastPunch?.status === "active";
-                        const hasToday = emp.lastPunch?.clock_in_at && new Date(emp.lastPunch.clock_in_at).toDateString() === new Date().toDateString();
-                        const wasLate = hasToday && new Date(emp.lastPunch.clock_in_at).getHours() >= 9;
                         let status: { label: string; color: string; Icon: typeof CheckCircle2 };
                         if (!(emp as any).is_confirmed) status = { label: t("pending"), color: "text-muted-foreground", Icon: Clock };
                         else if (isActive) status = { label: t("active"), color: "text-success", Icon: CircleDot };
-                        else if (hasToday && wasLate) status = { label: t("delay"), color: "text-warning", Icon: AlertCircle };
-                        else if (hasToday) status = { label: t("punctual"), color: "text-success", Icon: CheckCircle2 };
-                        else status = { label: t("absent"), color: "text-destructive", Icon: XCircle };
+                        else if (!(emp as any).is_active) status = { label: t("inactive"), color: "text-muted-foreground", Icon: XCircle };
+                        else status = { label: t("out"), color: "text-warning", Icon: Clock };
 
                         const empPunches = punchesByEmployee[emp.id] ?? [];
                         const isOpen = expandedEmployees[emp.id] ?? false;
