@@ -45,9 +45,14 @@ Deno.serve(async (req) => {
     // Get user profile (allow both admin and employee)
     const { data: userRow, error: profileError } = await serviceClient
       .from("users")
-      .select("role, company_id, is_active")
+      .select("role, company_id, is_active, is_confirmed")
       .eq("id", userId)
       .single();
+
+    // Auto-confirm on first login
+    if (userRow && !(userRow as any).is_confirmed) {
+      await serviceClient.from("users").update({ is_confirmed: true }).eq("id", userId);
+    }
 
     if (profileError || !userRow) {
       return new Response(

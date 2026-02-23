@@ -32,11 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("id, email, full_name, role, company_id, is_confirmed")
       .eq("id", userId)
       .single();
-    if (data && !(data as any).is_confirmed) {
-      // Mark as confirmed on first successful login
-      await supabase.from("users").update({ is_confirmed: true } as any).eq("id", userId);
-      (data as any).is_confirmed = true;
-    }
+    // is_confirmed is now handled server-side in the employee_dashboard edge function
     setProfile(data);
   };
 
