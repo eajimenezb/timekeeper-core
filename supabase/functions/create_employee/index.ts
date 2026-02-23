@@ -93,15 +93,27 @@ Deno.serve(async (req) => {
     if (authError) {
       // If email already exists in auth (orphaned), look it up and reuse
       if (authError.message?.includes("already been registered")) {
-        const { data: listData } = await serviceClient.auth.admin.listUsers();
-        const existingAuthUser = listData?.users?.find((u) => u.email === email);
-        if (!existingAuthUser) {
-          return new Response(
-            JSON.stringify({ success: false, error: "Email exists in auth but could not be found" }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+        // Use listUsers with filter to find by email reliably
+        const { data: listData, error: listError } = await serviceClient.auth.admin.listUsers({
+          page: 1,
+          perPage: 1,
+          filter: email,
+        } as any);
+        const existingAuthUser = listData?.users?.[0];
+        if (!existingAuthUser || listError) {
+          // Fallback: try fetching all users and searching
+          const { data: allData } = await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          const fallbackUser = allData?.users?.find((u) => u.email === email);
+          if (!fallbackUser) {
+            return new Response(
+              JSON.stringify({ success: false, error: "Email exists in auth but could not be found. Please contact support." }),
+              { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          newUserId = fallbackUser.id;
+        } else {
+          newUserId = existingAuthUser.id;
         }
-        newUserId = existingAuthUser.id;
 
         // Check if trigger already created a users row for this id
         const { data: existingRow } = await serviceClient
