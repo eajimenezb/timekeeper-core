@@ -116,16 +116,16 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
         `}
       >
         {/* Company Logo */}
-        <div className="flex items-center gap-3 px-5 h-16 border-b border-sidebar-border shrink-0">
+        <div className="flex items-center gap-4 px-5 h-20 border-b border-sidebar-border shrink-0">
           {brandLogo ? (
-            <img src={brandLogo} alt={brandName} className="w-9 h-9 rounded-xl object-cover shrink-0" />
+            <img src={brandLogo} alt={brandName} className="w-12 h-12 rounded-xl object-cover shrink-0" />
           ) : (
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
-              <Building2 className="w-5 h-5 text-primary-foreground" />
+            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shrink-0">
+              <Building2 className="w-6 h-6 text-primary-foreground" />
             </div>
           )}
           {!collapsed && (
-            <span className="font-bold text-lg text-sidebar-accent-foreground tracking-tight animate-fade-in truncate">
+            <span className="font-bold text-xl text-sidebar-accent-foreground tracking-tight animate-fade-in truncate">
               {brandName}
             </span>
           )}
@@ -207,19 +207,19 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
-        <header className="lg:hidden flex items-center justify-between px-4 h-14 border-b border-border bg-card/50 backdrop-blur-lg sticky top-0 z-30">
+        <header className="lg:hidden flex items-center justify-between px-4 h-16 border-b border-border bg-card/50 backdrop-blur-lg sticky top-0 z-30">
           <button onClick={() => setMobileOpen(true)} className="p-2 -ml-2 rounded-xl hover:bg-muted transition-colors">
             <Menu className="w-5 h-5 text-muted-foreground" />
           </button>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {brandLogo ? (
-              <img src={brandLogo} alt={brandName} className="w-7 h-7 rounded-lg object-cover" />
+              <img src={brandLogo} alt={brandName} className="w-9 h-9 rounded-lg object-cover" />
             ) : (
-              <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-                <Building2 className="w-4 h-4 text-primary-foreground" />
+              <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-primary-foreground" />
               </div>
             )}
-            <span className="font-bold text-sm truncate max-w-[140px]">{brandName}</span>
+            <span className="font-bold text-base truncate max-w-[160px]">{brandName}</span>
           </div>
           <button
             onClick={() => setLang(lang === "es" ? "en" : "es")}
