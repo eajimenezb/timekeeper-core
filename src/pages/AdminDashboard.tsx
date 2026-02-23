@@ -502,126 +502,128 @@ export default function AdminDashboard() {
           </div>
 
           <div className="lg:col-span-2 glass-card rounded-[2.5rem] p-6 animate-fade-in-up stagger-5">
-            <h2 className="text-base font-semibold text-foreground mb-4">{t("liveMonitoring")}</h2>
-            <div className="space-y-4 max-h-[280px] overflow-y-auto pr-1">
-              {(() => {
-                // Group employees by location
-                const grouped: Record<string, typeof latestPunches> = {};
-                const noLocKey = "__no_location__";
-                for (const emp of latestPunches) {
-                  const key = (emp as any).location_id || noLocKey;
-                  if (!grouped[key]) grouped[key] = [];
-                  grouped[key].push(emp);
-                }
-                // Sort employees alphabetically within each group
-                for (const key of Object.keys(grouped)) {
-                  grouped[key].sort((a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email));
-                }
-                // Sort location groups: named locations first (alphabetical), then no-location
-                const locKeys = Object.keys(grouped).sort((a, b) => {
-                  if (a === noLocKey) return 1;
-                  if (b === noLocKey) return -1;
-                  return getLocationName(a).localeCompare(getLocationName(b));
-                });
+            <h2 className="text-base font-semibold text-foreground mb-4">{t("liveMonitoring")} & {lang === "es" ? "Marcaciones" : "Punches"}</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Live Monitoring */}
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">{t("liveMonitoring")}</h3>
+                <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                  {(() => {
+                    const grouped: Record<string, typeof latestPunches> = {};
+                    const noLocKey = "__no_location__";
+                    for (const emp of latestPunches) {
+                      const key = (emp as any).location_id || noLocKey;
+                      if (!grouped[key]) grouped[key] = [];
+                      grouped[key].push(emp);
+                    }
+                    for (const key of Object.keys(grouped)) {
+                      grouped[key].sort((a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email));
+                    }
+                    const locKeys = Object.keys(grouped).sort((a, b) => {
+                      if (a === noLocKey) return 1;
+                      if (b === noLocKey) return -1;
+                      return getLocationName(a).localeCompare(getLocationName(b));
+                    });
 
-                if (locKeys.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">{t("noEmployees")}</p>;
+                    if (locKeys.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">{t("noEmployees")}</p>;
 
-                return locKeys.map((locKey) => (
-                  <div key={locKey}>
-                    <div className="flex items-center gap-2 mb-1.5 px-1">
-                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-                      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider truncate">
-                        {locKey === noLocKey ? t("noLocation") : getLocationName(locKey)}
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      {grouped[locKey].map((emp) => {
-                        const isActive = emp.lastPunch?.status === "active";
-                        const hasToday = emp.lastPunch?.clock_in_at && new Date(emp.lastPunch.clock_in_at).toDateString() === new Date().toDateString();
-                        const wasLate = hasToday && new Date(emp.lastPunch.clock_in_at).getHours() >= 9;
-                        let status: { label: string; color: string; Icon: typeof CheckCircle2 };
-                        if (isActive) status = { label: t("active"), color: "text-success", Icon: CircleDot };
-                        else if (hasToday && wasLate) status = { label: t("delay"), color: "text-warning", Icon: AlertCircle };
-                        else if (hasToday) status = { label: t("punctual"), color: "text-success", Icon: CheckCircle2 };
-                        else status = { label: t("absent"), color: "text-destructive", Icon: XCircle };
-
-                        return (
-                          <div key={emp.id} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted/50 transition-colors">
-                            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <span className="text-[10px] font-bold text-primary">{(emp.full_name || emp.email).charAt(0).toUpperCase()}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-foreground truncate">{emp.full_name || emp.email}</p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {emp.lastPunch?.clock_in_at ? format(new Date(emp.lastPunch.clock_in_at), "hh:mm a", { locale: dateFnsLocale }) : t("noRecord")}
-                              </p>
-                            </div>
-                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase ${status.color}`}>
-                              <status.Icon className={`w-3 h-3 ${isActive ? "animate-pulse" : ""}`} />
-                              {status.label}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ));
-              })()}
-            </div>
-          </div>
-        </div>
-        {/* Punches */}
-        <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
-          <div className="px-6 lg:px-8 pt-6 pb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-              <ClipboardEdit className="w-4 h-4 text-primary" />
-              {lang === "es" ? "Marcaciones" : "Punches"}
-            </h2>
-          </div>
-          <div className="px-4 lg:px-6 pb-6 space-y-2">
-            {Object.keys(punchesByEmployee).length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-6">{t("noRecordsYet")}</p>
-            )}
-            {Object.entries(punchesByEmployee).map(([userId, punches]) => {
-              const isOpen = expandedEmployees[userId] ?? false;
-              const empName = getEmployeeName(userId);
-              return (
-                <div key={userId} className="rounded-2xl border border-border/50 overflow-hidden">
-                  <button
-                    onClick={() => toggleExpand(userId)}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-muted/30 hover:bg-muted/60 transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-bold text-primary">{empName.charAt(0).toUpperCase()}</span>
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-medium text-foreground">{empName}</p>
-                      <p className="text-[10px] text-muted-foreground">{punches.length} {lang === "es" ? "registros" : "records"}</p>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  {isOpen && (
-                    <div className="bg-card border-t border-border/50 divide-y divide-border/30">
-                      {punches.slice(0, 15).map((punch: any) => (
-                        <div key={punch.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-muted-foreground">
-                              {punch.clock_in_at ? format(new Date(punch.clock_in_at), "EEE d MMM, hh:mm a", { locale: dateFnsLocale }) : "—"}
-                              {" → "}
-                              {punch.clock_out_at ? format(new Date(punch.clock_out_at), "hh:mm a", { locale: dateFnsLocale }) : "—"}
-                            </p>
-                          </div>
-                          <span className="text-xs font-semibold text-foreground">{punch.total_seconds ? formatHours(punch.total_seconds / 3600) : "—"}</span>
-                          <button onClick={() => openEditPunch(punch)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t("editPunch")}>
-                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                          </button>
+                    return locKeys.map((locKey) => (
+                      <div key={locKey}>
+                        <div className="flex items-center gap-2 mb-1.5 px-1">
+                          <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                          <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider truncate">
+                            {locKey === noLocKey ? t("noLocation") : getLocationName(locKey)}
+                          </span>
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <div className="space-y-1">
+                          {grouped[locKey].map((emp) => {
+                            const isActive = emp.lastPunch?.status === "active";
+                            const hasToday = emp.lastPunch?.clock_in_at && new Date(emp.lastPunch.clock_in_at).toDateString() === new Date().toDateString();
+                            const wasLate = hasToday && new Date(emp.lastPunch.clock_in_at).getHours() >= 9;
+                            let status: { label: string; color: string; Icon: typeof CheckCircle2 };
+                            if (isActive) status = { label: t("active"), color: "text-success", Icon: CircleDot };
+                            else if (hasToday && wasLate) status = { label: t("delay"), color: "text-warning", Icon: AlertCircle };
+                            else if (hasToday) status = { label: t("punctual"), color: "text-success", Icon: CheckCircle2 };
+                            else status = { label: t("absent"), color: "text-destructive", Icon: XCircle };
+
+                            return (
+                              <div key={emp.id} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted/50 transition-colors">
+                                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                  <span className="text-[10px] font-bold text-primary">{(emp.full_name || emp.email).charAt(0).toUpperCase()}</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-foreground truncate">{emp.full_name || emp.email}</p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {emp.lastPunch?.clock_in_at ? format(new Date(emp.lastPunch.clock_in_at), "hh:mm a", { locale: dateFnsLocale }) : t("noRecord")}
+                                  </p>
+                                </div>
+                                <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase ${status.color}`}>
+                                  <status.Icon className={`w-3 h-3 ${isActive ? "animate-pulse" : ""}`} />
+                                  {status.label}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ));
+                  })()}
                 </div>
-              );
-            })}
+              </div>
+
+              {/* Punches */}
+              <div>
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <ClipboardEdit className="w-3.5 h-3.5 text-primary" />
+                  {lang === "es" ? "Marcaciones" : "Punches"}
+                </h3>
+                <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
+                  {Object.keys(punchesByEmployee).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-6">{t("noRecordsYet")}</p>
+                  )}
+                  {Object.entries(punchesByEmployee).map(([userId, punches]) => {
+                    const isOpen = expandedEmployees[userId] ?? false;
+                    const empName = getEmployeeName(userId);
+                    return (
+                      <div key={userId} className="rounded-2xl border border-border/50 overflow-hidden">
+                        <button
+                          onClick={() => toggleExpand(userId)}
+                          className="w-full flex items-center gap-3 px-4 py-3 bg-muted/30 hover:bg-muted/60 transition-colors"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-bold text-primary">{empName.charAt(0).toUpperCase()}</span>
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-medium text-foreground">{empName}</p>
+                            <p className="text-[10px] text-muted-foreground">{punches.length} {lang === "es" ? "registros" : "records"}</p>
+                          </div>
+                          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                        </button>
+                        {isOpen && (
+                          <div className="bg-card border-t border-border/50 divide-y divide-border/30">
+                            {punches.slice(0, 15).map((punch: any) => (
+                              <div key={punch.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[10px] text-muted-foreground">
+                                    {punch.clock_in_at ? format(new Date(punch.clock_in_at), "EEE d MMM, hh:mm a", { locale: dateFnsLocale }) : "—"}
+                                    {" → "}
+                                    {punch.clock_out_at ? format(new Date(punch.clock_out_at), "hh:mm a", { locale: dateFnsLocale }) : "—"}
+                                  </p>
+                                </div>
+                                <span className="text-xs font-semibold text-foreground">{punch.total_seconds ? formatHours(punch.total_seconds / 3600) : "—"}</span>
+                                <button onClick={() => openEditPunch(punch)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t("editPunch")}>
+                                  <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         </>)}
