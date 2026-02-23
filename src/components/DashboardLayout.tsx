@@ -18,15 +18,17 @@ import {
   Building2,
   Sun,
   Moon,
+  MapPin,
 } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: ReactNode;
   role: "admin" | "employee";
   activePage?: string;
+  onNavClick?: (id: string) => void;
 }
 
-export default function DashboardLayout({ children, role, activePage = "panel" }: DashboardLayoutProps) {
+export default function DashboardLayout({ children, role, activePage = "panel", onNavClick }: DashboardLayoutProps) {
   const { profile, signOut } = useAuth();
   const { lang, setLang, t } = useLanguage();
   const { darkMode, setDarkMode } = useCompanySettings();
@@ -83,7 +85,7 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
   const adminNav = [
     { icon: LayoutDashboard, label: t("panel"), id: "panel", path: "/" },
     { icon: Users, label: t("team"), id: "team", path: "/" },
-    { icon: CalendarDays, label: t("reports"), id: "reports", path: "/" },
+    { icon: MapPin, label: t("locations") || "Locations", id: "locations", path: "/" },
     { icon: Settings, label: t("settings"), id: "settings", path: "/" },
   ];
 
@@ -136,7 +138,7 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
           {nav.map((item) => (
             <button
               key={item.id}
-              onClick={() => { navigate(item.path); setMobileOpen(false); }}
+              onClick={() => { if (onNavClick) { onNavClick(item.id); } else { navigate(item.path); } setMobileOpen(false); }}
               className={`
                 w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
                 transition-all duration-200
