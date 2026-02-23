@@ -350,6 +350,14 @@ export default function EmployeeDashboard() {
             ) : (
               <p className="text-sm text-muted-foreground text-center py-8">{t("noRecordsYet")}</p>
             )}
+            {data?.history && data.history.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-3 mt-2 rounded-2xl bg-primary/5 border border-primary/10">
+                <span className="text-sm font-semibold text-foreground">{lang === "es" ? "Tiempo total" : "Total time"}</span>
+                <span className="text-sm font-bold text-primary font-mono">
+                  {formatHours(data.history.reduce((sum: number, e: any) => sum + (e.total_seconds ? e.total_seconds / 3600 : 0), 0))}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
