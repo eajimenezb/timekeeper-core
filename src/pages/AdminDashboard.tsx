@@ -570,6 +570,60 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+        {/* Punches */}
+        <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
+          <div className="px-6 lg:px-8 pt-6 pb-4 flex items-center justify-between">
+            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+              <ClipboardEdit className="w-4 h-4 text-primary" />
+              {lang === "es" ? "Marcaciones" : "Punches"}
+            </h2>
+          </div>
+          <div className="px-4 lg:px-6 pb-6 space-y-2">
+            {Object.keys(punchesByEmployee).length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-6">{t("noRecordsYet")}</p>
+            )}
+            {Object.entries(punchesByEmployee).map(([userId, punches]) => {
+              const isOpen = expandedEmployees[userId] ?? false;
+              const empName = getEmployeeName(userId);
+              return (
+                <div key={userId} className="rounded-2xl border border-border/50 overflow-hidden">
+                  <button
+                    onClick={() => toggleExpand(userId)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-muted/30 hover:bg-muted/60 transition-colors"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <span className="text-xs font-bold text-primary">{empName.charAt(0).toUpperCase()}</span>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-sm font-medium text-foreground">{empName}</p>
+                      <p className="text-[10px] text-muted-foreground">{punches.length} {lang === "es" ? "registros" : "records"}</p>
+                    </div>
+                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+                  </button>
+                  {isOpen && (
+                    <div className="bg-card border-t border-border/50 divide-y divide-border/30">
+                      {punches.slice(0, 15).map((punch: any) => (
+                        <div key={punch.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-muted-foreground">
+                              {punch.clock_in_at ? format(new Date(punch.clock_in_at), "EEE d MMM, hh:mm a", { locale: dateFnsLocale }) : "—"}
+                              {" → "}
+                              {punch.clock_out_at ? format(new Date(punch.clock_out_at), "hh:mm a", { locale: dateFnsLocale }) : "—"}
+                            </p>
+                          </div>
+                          <span className="text-xs font-semibold text-foreground">{punch.total_seconds ? formatHours(punch.total_seconds / 3600) : "—"}</span>
+                          <button onClick={() => openEditPunch(punch)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t("editPunch")}>
+                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
         </>)}
 
         {/* TEAM TAB: Employee Management */}
@@ -640,70 +694,6 @@ export default function AdminDashboard() {
         )}
         </>)}
 
-        {/* PUNCHES TAB */}
-        {activeTab === "punches" && (<>
-        <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
-          <div className="px-6 lg:px-8 pt-6 pb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
-              <ClipboardEdit className="w-4 h-4 text-primary" />
-              {lang === "es" ? "Marcaciones" : "Punches"}
-            </h2>
-            <button
-              onClick={exportCsv}
-              disabled={!adminData?.punches || adminData.punches.length === 0}
-              className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">CSV</span>
-            </button>
-          </div>
-          <div className="px-4 lg:px-6 pb-6 space-y-2">
-            {Object.keys(punchesByEmployee).length === 0 && (
-              <p className="text-sm text-muted-foreground text-center py-6">{t("noRecordsYet")}</p>
-            )}
-            {Object.entries(punchesByEmployee).map(([userId, punches]) => {
-              const isOpen = expandedEmployees[userId] ?? false;
-              const empName = getEmployeeName(userId);
-              return (
-                <div key={userId} className="rounded-2xl border border-border/50 overflow-hidden">
-                  <button
-                    onClick={() => toggleExpand(userId)}
-                    className="w-full flex items-center gap-3 px-4 py-3 bg-muted/30 hover:bg-muted/60 transition-colors"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-bold text-primary">{empName.charAt(0).toUpperCase()}</span>
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-medium text-foreground">{empName}</p>
-                      <p className="text-[10px] text-muted-foreground">{punches.length} {lang === "es" ? "registros" : "records"}</p>
-                    </div>
-                    <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  {isOpen && (
-                    <div className="bg-card border-t border-border/50 divide-y divide-border/30">
-                      {punches.slice(0, 15).map((punch: any) => (
-                        <div key={punch.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-muted-foreground">
-                              {punch.clock_in_at ? format(new Date(punch.clock_in_at), "EEE d MMM, hh:mm a", { locale: dateFnsLocale }) : "—"}
-                              {" → "}
-                              {punch.clock_out_at ? format(new Date(punch.clock_out_at), "hh:mm a", { locale: dateFnsLocale }) : "—"}
-                            </p>
-                          </div>
-                          <span className="text-xs font-semibold text-foreground">{punch.total_seconds ? formatHours(punch.total_seconds / 3600) : "—"}</span>
-                          <button onClick={() => openEditPunch(punch)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t("editPunch")}>
-                            <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        </>)}
 
         {/* LOCATIONS TAB */}
         {activeTab === "locations" && (<>
