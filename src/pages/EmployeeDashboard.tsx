@@ -95,7 +95,11 @@ export default function EmployeeDashboard() {
           if (data.display_name) {
             // Shorten: take first 2-3 parts
             const parts = data.display_name.split(", ");
-            setDetectedAddress(parts.slice(0, 3).join(", "));
+            // Join first two parts (number + street) without comma, then add rest
+            const addr = parts.length >= 3
+              ? `${parts[0]} ${parts[1]}, ${parts[2]}`
+              : parts.slice(0, 3).join(", ");
+            setDetectedAddress(addr);
           }
         })
         .catch(() => {});
