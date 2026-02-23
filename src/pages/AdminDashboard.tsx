@@ -842,29 +842,29 @@ export default function AdminDashboard() {
       {/* Punch Edit Modal */}
       {showPunchModal && editingPunch && (
         <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowPunchModal(false)}>
-          <div className="bg-card rounded-[2rem] p-6 w-full max-w-md space-y-4 shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card rounded-[2rem] p-5 sm:p-6 w-full max-w-md space-y-4 shadow-2xl animate-scale-in overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-foreground">{t("editPunch")}</h3>
               <button onClick={() => setShowPunchModal(false)} className="p-1 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
             </div>
             <p className="text-sm text-muted-foreground">{getEmployeeName(editingPunch.user_id)}</p>
             <div className="space-y-3">
-              <div>
+              <div className="min-w-0">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("clockIn")}</label>
                 <input
                   type="datetime-local"
                   value={punchForm.clock_in_at}
                   onChange={(e) => setPunchForm({ ...punchForm, clock_in_at: e.target.value })}
-                  className="w-full min-w-0 mt-1 px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full min-w-0 max-w-full box-border mt-1 px-2 sm:px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-[11px] sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 [&::-webkit-datetime-edit]:min-w-0 [&::-webkit-datetime-edit-fields-wrapper]:min-w-0"
                 />
               </div>
-              <div>
+              <div className="min-w-0">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t("clockOut")}</label>
                 <input
                   type="datetime-local"
                   value={punchForm.clock_out_at}
                   onChange={(e) => setPunchForm({ ...punchForm, clock_out_at: e.target.value })}
-                  className="w-full min-w-0 mt-1 px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full min-w-0 max-w-full box-border mt-1 px-2 sm:px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-[11px] sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 [&::-webkit-datetime-edit]:min-w-0 [&::-webkit-datetime-edit-fields-wrapper]:min-w-0"
                 />
               </div>
             </div>
