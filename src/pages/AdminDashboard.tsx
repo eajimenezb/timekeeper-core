@@ -587,6 +587,32 @@ export default function AdminDashboard() {
                                     </button>
                                   </div>
                                 ))}
+                                <div className="px-4 py-2 flex justify-end">
+                                  <button
+                                    onClick={() => {
+                                      const name = (emp.full_name || emp.email).replace(/,/g, " ");
+                                      const headers = ["Date,Clock In,Clock Out,Duration (h),Status"];
+                                      const rows = empPunches.map((p: any) => {
+                                        const date = p.clock_in_at ? format(new Date(p.clock_in_at), "yyyy-MM-dd") : "";
+                                        const cin = p.clock_in_at ? format(new Date(p.clock_in_at), "hh:mm a") : "";
+                                        const cout = p.clock_out_at ? format(new Date(p.clock_out_at), "hh:mm a") : "";
+                                        const dur = p.total_seconds ? (p.total_seconds / 3600).toFixed(2) : "";
+                                        return `${date},${cin},${cout},${dur},${p.status}`;
+                                      });
+                                      const blob = new Blob([headers.concat(rows).join("\n")], { type: "text/csv" });
+                                      const url = URL.createObjectURL(blob);
+                                      const a = document.createElement("a");
+                                      a.href = url;
+                                      a.download = `${name}-punches-${format(new Date(), "yyyy-MM-dd")}.csv`;
+                                      a.click();
+                                      URL.revokeObjectURL(url);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-[10px] font-semibold hover:bg-primary/20 transition-colors"
+                                  >
+                                    <Download className="w-3 h-3" />
+                                    CSV
+                                  </button>
+                                </div>
                               </div>
                             )}
                           </div>
