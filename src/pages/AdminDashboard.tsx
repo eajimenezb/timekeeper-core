@@ -855,7 +855,7 @@ export default function AdminDashboard() {
                   type="datetime-local"
                   value={punchForm.clock_in_at}
                   onChange={(e) => setPunchForm({ ...punchForm, clock_in_at: e.target.value })}
-                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full min-w-0 mt-1 px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
               <div>
@@ -864,7 +864,7 @@ export default function AdminDashboard() {
                   type="datetime-local"
                   value={punchForm.clock_out_at}
                   onChange={(e) => setPunchForm({ ...punchForm, clock_out_at: e.target.value })}
-                  className="w-full mt-1 px-4 py-2.5 rounded-xl bg-muted/50 border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full min-w-0 mt-1 px-3 py-2.5 rounded-xl bg-muted/50 border border-border text-xs sm:text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
               </div>
             </div>
