@@ -56,9 +56,22 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
     enabled: !!profile?.company_id,
   });
 
-  const brandLogo = companyLogo || null;
+  // Fetch employee's assigned location for sidebar branding
+  const { data: userLocation } = useQuery({
+    queryKey: ["user-location-sidebar", profile?.id],
+    queryFn: async () => {
+      if (!profile?.id) return null;
+      const { data: userData } = await supabase.from("users").select("location_id" as any).eq("id", profile.id).single();
+      if (!(userData as any)?.location_id) return null;
+      const { data: loc } = await (supabase.from as any)("locations").select("name, logo_url").eq("id", (userData as any).location_id).single();
+      return loc as { name: string; logo_url: string | null } | null;
+    },
+    enabled: !!profile?.id && role === "employee",
+  });
 
-  const companyName = company?.name || "Company";
+  // For employees: show location branding; for admins: show company branding
+  const brandLogo = role === "employee" ? (userLocation?.logo_url || companyLogo || null) : (companyLogo || null);
+  const brandName = role === "employee" ? (userLocation?.name || company?.name || "Company") : (company?.name || "Company");
 
   const employeeNav = [
     { icon: LayoutDashboard, label: t("panel"), id: "panel", path: "/" },
@@ -105,7 +118,7 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
         {/* Company Logo */}
         <div className="flex items-center gap-3 px-5 h-16 border-b border-sidebar-border shrink-0">
           {brandLogo ? (
-            <img src={brandLogo} alt={companyName} className="w-9 h-9 rounded-xl object-cover shrink-0" />
+            <img src={brandLogo} alt={brandName} className="w-9 h-9 rounded-xl object-cover shrink-0" />
           ) : (
             <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
               <Building2 className="w-5 h-5 text-primary-foreground" />
@@ -113,7 +126,7 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
           )}
           {!collapsed && (
             <span className="font-bold text-lg text-sidebar-accent-foreground tracking-tight animate-fade-in truncate">
-              {companyName}
+              {brandName}
             </span>
           )}
         </div>
@@ -200,13 +213,13 @@ export default function DashboardLayout({ children, role, activePage = "panel" }
           </button>
           <div className="flex items-center gap-2">
             {brandLogo ? (
-              <img src={brandLogo} alt={companyName} className="w-7 h-7 rounded-lg object-cover" />
+              <img src={brandLogo} alt={brandName} className="w-7 h-7 rounded-lg object-cover" />
             ) : (
               <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
                 <Building2 className="w-4 h-4 text-primary-foreground" />
               </div>
             )}
-            <span className="font-bold text-sm truncate max-w-[140px]">{companyName}</span>
+            <span className="font-bold text-sm truncate max-w-[140px]">{brandName}</span>
           </div>
           <button
             onClick={() => setLang(lang === "es" ? "en" : "es")}
