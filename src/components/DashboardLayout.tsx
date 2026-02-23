@@ -118,16 +118,16 @@ export default function DashboardLayout({ children, role, activePage = "panel", 
         `}
       >
         {/* Company Logo */}
-        <div className="flex items-center gap-4 px-5 h-20 border-b border-sidebar-border shrink-0">
+        <div className={`flex items-center gap-4 px-5 border-b border-sidebar-border shrink-0 ${role === "employee" ? "h-24" : "h-20"}`}>
           {brandLogo ? (
-            <img src={brandLogo} alt={brandName} className="w-12 h-12 rounded-xl object-cover shrink-0" />
+            <img src={brandLogo} alt={brandName} className={`${role === "employee" ? "w-[60px] h-[60px]" : "w-12 h-12"} rounded-xl object-cover shrink-0`} />
           ) : (
-            <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shrink-0">
-              <Building2 className="w-6 h-6 text-primary-foreground" />
+            <div className={`${role === "employee" ? "w-[60px] h-[60px]" : "w-12 h-12"} rounded-xl bg-primary flex items-center justify-center shrink-0`}>
+              <Building2 className={`${role === "employee" ? "w-7 h-7" : "w-6 h-6"} text-primary-foreground`} />
             </div>
           )}
           {!collapsed && (
-            <span className="font-bold text-xl text-sidebar-accent-foreground tracking-tight animate-fade-in truncate">
+            <span className={`font-bold ${role === "employee" ? "text-2xl" : "text-xl"} text-sidebar-accent-foreground tracking-tight animate-fade-in truncate`}>
               {brandName}
             </span>
           )}
@@ -215,13 +215,13 @@ export default function DashboardLayout({ children, role, activePage = "panel", 
           </button>
           <div className="flex items-center gap-3">
             {brandLogo ? (
-              <img src={brandLogo} alt={brandName} className="w-9 h-9 rounded-lg object-cover" />
+              <img src={brandLogo} alt={brandName} className={`${role === "employee" ? "w-11 h-11" : "w-9 h-9"} rounded-lg object-cover`} />
             ) : (
-              <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-primary-foreground" />
+              <div className={`${role === "employee" ? "w-11 h-11" : "w-9 h-9"} rounded-lg bg-primary flex items-center justify-center`}>
+                <Building2 className={`${role === "employee" ? "w-6 h-6" : "w-5 h-5"} text-primary-foreground`} />
               </div>
             )}
-            <span className="font-bold text-base truncate max-w-[160px]">{brandName}</span>
+            <span className={`font-bold ${role === "employee" ? "text-lg" : "text-base"} truncate max-w-[160px]`}>{brandName}</span>
           </div>
           <button
             onClick={() => setLang(lang === "es" ? "en" : "es")}
