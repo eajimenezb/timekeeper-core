@@ -118,7 +118,7 @@ export default function AdminDashboard() {
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
       return data.data as {
-        employees: { id: string; full_name: string; email: string; role: string; is_active: boolean; location_id: string | null }[];
+        employees: { id: string; full_name: string; email: string; role: string; is_active: boolean; location_id: string | null; is_confirmed: boolean }[];
         punches: any[];
         total_hours_per_employee: { user_id: string; total_hours: number }[];
       };
@@ -537,7 +537,8 @@ export default function AdminDashboard() {
                         const hasToday = emp.lastPunch?.clock_in_at && new Date(emp.lastPunch.clock_in_at).toDateString() === new Date().toDateString();
                         const wasLate = hasToday && new Date(emp.lastPunch.clock_in_at).getHours() >= 9;
                         let status: { label: string; color: string; Icon: typeof CheckCircle2 };
-                        if (isActive) status = { label: t("active"), color: "text-success", Icon: CircleDot };
+                        if (!(emp as any).is_confirmed) status = { label: t("pending"), color: "text-muted-foreground", Icon: Clock };
+                        else if (isActive) status = { label: t("active"), color: "text-success", Icon: CircleDot };
                         else if (hasToday && wasLate) status = { label: t("delay"), color: "text-warning", Icon: AlertCircle };
                         else if (hasToday) status = { label: t("punctual"), color: "text-success", Icon: CheckCircle2 };
                         else status = { label: t("absent"), color: "text-destructive", Icon: XCircle };
@@ -623,8 +624,11 @@ export default function AdminDashboard() {
                   <p className="text-sm font-medium text-foreground truncate">{emp.full_name || emp.email}</p>
                   <p className="text-[10px] text-muted-foreground">{emp.email}</p>
                 </div>
-                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${emp.is_active !== false ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
-                  {emp.is_active !== false ? t("activeStatus") : t("filed")}
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                  !(emp as any).is_confirmed ? "bg-warning/10 text-warning" :
+                  emp.is_active !== false ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                }`}>
+                  {!(emp as any).is_confirmed ? t("pending") : emp.is_active !== false ? t("activeStatus") : t("filed")}
                 </span>
                 <div className="flex items-center gap-1">
                   <button onClick={() => openEditEmployee(emp)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t("editEmployee")}>

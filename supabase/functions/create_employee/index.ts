@@ -80,20 +80,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Try to create auth user; if email already exists in auth, reuse that account
-    let newUserId: string;
-    const tempPassword = crypto.randomUUID() + "Aa1!";
-    const { data: authData, error: authError } = await serviceClient.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: { full_name },
+    // Use inviteUserByEmail to send an invitation email
+    const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, {
+      data: { full_name },
+      redirectTo: `${Deno.env.get("SUPABASE_URL")!.replace('.supabase.co', '.supabase.co')}/auth/v1/callback`,
     });
 
-    if (authError) {
+    let newUserId: string;
+
+    if (inviteError) {
       // If email already exists in auth (orphaned), look it up and reuse
-      if (authError.message?.includes("already been registered")) {
-        // Use listUsers with filter to find by email reliably
+      if (inviteError.message?.includes("already been registered")) {
         const { data: listData, error: listError } = await serviceClient.auth.admin.listUsers({
           page: 1,
           perPage: 1,
@@ -101,7 +98,6 @@ Deno.serve(async (req) => {
         } as any);
         const existingAuthUser = listData?.users?.[0];
         if (!existingAuthUser || listError) {
-          // Fallback: try fetching all users and searching
           const { data: allData } = await serviceClient.auth.admin.listUsers({ page: 1, perPage: 1000 });
           const fallbackUser = allData?.users?.find((u) => u.email === email);
           if (!fallbackUser) {
@@ -123,7 +119,6 @@ Deno.serve(async (req) => {
           .maybeSingle();
 
         if (existingRow) {
-          // Update existing row
           const orphanCid = existingRow.company_id;
           await serviceClient
             .from("users")
@@ -133,13 +128,13 @@ Deno.serve(async (req) => {
               role,
               location_id: location_id || null,
               is_active: true,
+              is_confirmed: false,
             })
             .eq("id", newUserId);
           if (orphanCid && orphanCid !== adminRow.company_id) {
             await serviceClient.from("companies").delete().eq("id", orphanCid);
           }
         } else {
-          // Insert new users row
           await serviceClient.from("users").insert({
             id: newUserId,
             company_id: adminRow.company_id,
@@ -148,18 +143,22 @@ Deno.serve(async (req) => {
             role,
             location_id: location_id || null,
             is_active: true,
+            is_confirmed: false,
           });
         }
       } else {
         return new Response(
-          JSON.stringify({ success: false, error: authError.message }),
+          JSON.stringify({ success: false, error: inviteError.message }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     } else {
-      newUserId = authData.user.id;
+      newUserId = inviteData.user.id;
 
       // The handle_new_auth_user trigger auto-creates a company + user row.
+      // Wait a moment for trigger to fire, then check
+      await new Promise((r) => setTimeout(r, 500));
+
       const { data: autoUser } = await serviceClient
         .from("users")
         .select("company_id")
@@ -176,6 +175,7 @@ Deno.serve(async (req) => {
             full_name: full_name || null,
             role,
             location_id: location_id || null,
+            is_confirmed: false,
           })
           .eq("id", newUserId);
       } else {
@@ -186,6 +186,7 @@ Deno.serve(async (req) => {
           full_name: full_name || null,
           role,
           location_id: location_id || null,
+          is_confirmed: false,
         });
       }
 

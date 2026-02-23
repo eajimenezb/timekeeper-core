@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { LanguageProvider } from "@/hooks/useLanguage";
 import { CompanySettingsProvider } from "@/hooks/useCompanySettings";
 import Auth from "./pages/Auth";
+import SetPassword from "./pages/SetPassword";
 import EmployeeDashboard from "./pages/EmployeeDashboard";
 import EmployeeHistory from "./pages/EmployeeHistory";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -39,6 +40,7 @@ const App = () => (
             <CompanySettingsProvider>
             <Routes>
               <Route path="/auth" element={<AuthRedirect />} />
+              <Route path="/set-password" element={<SetPassword />} />
               <Route path="/" element={<ProtectedRoute><RoleRouter /></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><EmployeeHistory /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
