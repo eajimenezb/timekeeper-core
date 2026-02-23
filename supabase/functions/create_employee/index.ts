@@ -80,7 +80,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create auth user with a random password (employee can reset later)
+    // Try to create auth user; if email already exists in auth, reuse that account
+    let newUserId: string;
     const tempPassword = crypto.randomUUID() + "Aa1!";
     const { data: authData, error: authError } = await serviceClient.auth.admin.createUser({
       email,
@@ -90,49 +91,95 @@ Deno.serve(async (req) => {
     });
 
     if (authError) {
-      return new Response(
-        JSON.stringify({ success: false, error: authError.message }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+      // If email already exists in auth (orphaned), look it up and reuse
+      if (authError.message?.includes("already been registered")) {
+        const { data: listData } = await serviceClient.auth.admin.listUsers();
+        const existingAuthUser = listData?.users?.find((u) => u.email === email);
+        if (!existingAuthUser) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Email exists in auth but could not be found" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        newUserId = existingAuthUser.id;
 
-    const newUserId = authData.user.id;
+        // Check if trigger already created a users row for this id
+        const { data: existingRow } = await serviceClient
+          .from("users")
+          .select("id, company_id")
+          .eq("id", newUserId)
+          .maybeSingle();
 
-    // The handle_new_auth_user trigger auto-creates a company + user row.
-    // We need to:
-    // 1. Find and delete the auto-created orphan company
-    // 2. Update the auto-created user row to point to admin's company with correct data
+        if (existingRow) {
+          // Update existing row
+          const orphanCid = existingRow.company_id;
+          await serviceClient
+            .from("users")
+            .update({
+              company_id: adminRow.company_id,
+              full_name: full_name || null,
+              role,
+              location_id: location_id || null,
+              is_active: true,
+            })
+            .eq("id", newUserId);
+          if (orphanCid && orphanCid !== adminRow.company_id) {
+            await serviceClient.from("companies").delete().eq("id", orphanCid);
+          }
+        } else {
+          // Insert new users row
+          await serviceClient.from("users").insert({
+            id: newUserId,
+            company_id: adminRow.company_id,
+            email,
+            full_name: full_name || null,
+            role,
+            location_id: location_id || null,
+            is_active: true,
+          });
+        }
+      } else {
+        return new Response(
+          JSON.stringify({ success: false, error: authError.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      newUserId = authData.user.id;
 
-    // Get the auto-created user row to find the orphan company
-    const { data: autoUser } = await serviceClient
-      .from("users")
-      .select("company_id")
-      .eq("id", newUserId)
-      .single();
+      // The handle_new_auth_user trigger auto-creates a company + user row.
+      const { data: autoUser } = await serviceClient
+        .from("users")
+        .select("company_id")
+        .eq("id", newUserId)
+        .maybeSingle();
 
-    const orphanCompanyId = autoUser?.company_id;
+      const orphanCompanyId = autoUser?.company_id;
 
-    // Update the user row to the correct company and data
-    const { error: updateError } = await serviceClient
-      .from("users")
-      .update({
-        company_id: adminRow.company_id,
-        full_name: full_name || null,
-        role,
-        location_id: location_id || null,
-      })
-      .eq("id", newUserId);
+      if (autoUser) {
+        await serviceClient
+          .from("users")
+          .update({
+            company_id: adminRow.company_id,
+            full_name: full_name || null,
+            role,
+            location_id: location_id || null,
+          })
+          .eq("id", newUserId);
+      } else {
+        await serviceClient.from("users").insert({
+          id: newUserId,
+          company_id: adminRow.company_id,
+          email,
+          full_name: full_name || null,
+          role,
+          location_id: location_id || null,
+        });
+      }
 
-    if (updateError) {
-      return new Response(
-        JSON.stringify({ success: false, error: updateError.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Delete the orphan company created by the trigger
-    if (orphanCompanyId && orphanCompanyId !== adminRow.company_id) {
-      await serviceClient.from("companies").delete().eq("id", orphanCompanyId);
+      if (orphanCompanyId && orphanCompanyId !== adminRow.company_id) {
+        await serviceClient.from("companies").delete().eq("id", orphanCompanyId);
+      }
     }
 
     return new Response(
