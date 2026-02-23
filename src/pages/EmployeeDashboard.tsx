@@ -288,12 +288,7 @@ export default function EmployeeDashboard() {
                     {userLocation && (
                       <div className="flex items-center justify-between text-xs gap-2">
                         <span className="text-muted-foreground shrink-0">{lang === "es" ? "Ubicación asignada" : "Assigned Location"}</span>
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          {userLocation.logo_url && (
-                            <img src={userLocation.logo_url} alt={userLocation.name} className="w-5 h-5 rounded object-cover shrink-0" />
-                          )}
-                          <span className="font-mono text-foreground/80 text-right truncate">{userLocation.name}{userLocation.address ? ` — ${userLocation.address}` : ""}</span>
-                        </div>
+                        <span className="font-mono text-foreground/80 text-right truncate">{userLocation.name}{userLocation.address ? ` — ${userLocation.address}` : ""}</span>
                       </div>
                     )}
                   <div className="flex items-center justify-between text-xs">
