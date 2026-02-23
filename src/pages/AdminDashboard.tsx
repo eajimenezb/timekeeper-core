@@ -386,9 +386,14 @@ export default function AdminDashboard() {
 
   const openEditPunch = (punch: any) => {
     setEditingPunch(punch);
+    const toLocalDatetime = (iso: string) => {
+      const d = new Date(iso);
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
     setPunchForm({
-      clock_in_at: punch.clock_in_at ? new Date(punch.clock_in_at).toISOString().slice(0, 16) : "",
-      clock_out_at: punch.clock_out_at ? new Date(punch.clock_out_at).toISOString().slice(0, 16) : "",
+      clock_in_at: punch.clock_in_at ? toLocalDatetime(punch.clock_in_at) : "",
+      clock_out_at: punch.clock_out_at ? toLocalDatetime(punch.clock_out_at) : "",
     });
     setShowPunchModal(true);
   };
