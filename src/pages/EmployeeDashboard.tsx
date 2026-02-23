@@ -207,14 +207,6 @@ export default function EmployeeDashboard() {
             <h1 className="text-2xl lg:text-3xl font-bold text-foreground tracking-tight">
               {settings?.welcome_message || t("hello")}, {firstName} {settings?.use_emojis !== false ? "👋" : ""}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              {userLocation?.logo_url && (
-                <img src={userLocation.logo_url} alt={userLocation.name} className="w-5 h-5 rounded object-cover" />
-              )}
-              <p className="text-sm text-muted-foreground">
-                {userLocation?.name || t("employeePanel")}
-              </p>
-            </div>
           </div>
           <LiveClock />
         </div>
