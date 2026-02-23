@@ -118,7 +118,7 @@ export default function AdminDashboard() {
       if (error) throw error;
       if (!data.success) throw new Error(data.error);
       return data.data as {
-        employees: { id: string; full_name: string; email: string; role: string; is_active: boolean }[];
+        employees: { id: string; full_name: string; email: string; role: string; is_active: boolean; location_id: string | null }[];
         punches: any[];
         total_hours_per_employee: { user_id: string; total_hours: number }[];
       };
@@ -501,36 +501,70 @@ export default function AdminDashboard() {
 
           <div className="lg:col-span-2 glass-card rounded-[2.5rem] p-6 animate-fade-in-up stagger-5">
             <h2 className="text-base font-semibold text-foreground mb-4">{t("liveMonitoring")}</h2>
-            <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
-              {latestPunches.map((emp) => {
-                const isActive = emp.lastPunch?.status === "active";
-                const hasToday = emp.lastPunch?.clock_in_at && new Date(emp.lastPunch.clock_in_at).toDateString() === new Date().toDateString();
-                const wasLate = hasToday && new Date(emp.lastPunch.clock_in_at).getHours() >= 9;
-                let status: { label: string; color: string; Icon: typeof CheckCircle2 };
-                if (isActive) status = { label: t("active"), color: "text-success", Icon: CircleDot };
-                else if (hasToday && wasLate) status = { label: t("delay"), color: "text-warning", Icon: AlertCircle };
-                else if (hasToday) status = { label: t("punctual"), color: "text-success", Icon: CheckCircle2 };
-                else status = { label: t("absent"), color: "text-destructive", Icon: XCircle };
+            <div className="space-y-4 max-h-[280px] overflow-y-auto pr-1">
+              {(() => {
+                // Group employees by location
+                const grouped: Record<string, typeof latestPunches> = {};
+                const noLocKey = "__no_location__";
+                for (const emp of latestPunches) {
+                  const key = (emp as any).location_id || noLocKey;
+                  if (!grouped[key]) grouped[key] = [];
+                  grouped[key].push(emp);
+                }
+                // Sort employees alphabetically within each group
+                for (const key of Object.keys(grouped)) {
+                  grouped[key].sort((a, b) => (a.full_name || a.email).localeCompare(b.full_name || b.email));
+                }
+                // Sort location groups: named locations first (alphabetical), then no-location
+                const locKeys = Object.keys(grouped).sort((a, b) => {
+                  if (a === noLocKey) return 1;
+                  if (b === noLocKey) return -1;
+                  return getLocationName(a).localeCompare(getLocationName(b));
+                });
 
-                return (
-                  <div key={emp.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-muted/50 transition-colors">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-bold text-primary">{(emp.full_name || emp.email).charAt(0).toUpperCase()}</span>
+                if (locKeys.length === 0) return <p className="text-sm text-muted-foreground text-center py-6">{t("noEmployees")}</p>;
+
+                return locKeys.map((locKey) => (
+                  <div key={locKey}>
+                    <div className="flex items-center gap-2 mb-1.5 px-1">
+                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider truncate">
+                        {locKey === noLocKey ? t("noLocation") : getLocationName(locKey)}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{emp.full_name || emp.email}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {emp.lastPunch?.clock_in_at ? format(new Date(emp.lastPunch.clock_in_at), "hh:mm a", { locale: dateFnsLocale }) : t("noRecord")}
-                      </p>
+                    <div className="space-y-1">
+                      {grouped[locKey].map((emp) => {
+                        const isActive = emp.lastPunch?.status === "active";
+                        const hasToday = emp.lastPunch?.clock_in_at && new Date(emp.lastPunch.clock_in_at).toDateString() === new Date().toDateString();
+                        const wasLate = hasToday && new Date(emp.lastPunch.clock_in_at).getHours() >= 9;
+                        let status: { label: string; color: string; Icon: typeof CheckCircle2 };
+                        if (isActive) status = { label: t("active"), color: "text-success", Icon: CircleDot };
+                        else if (hasToday && wasLate) status = { label: t("delay"), color: "text-warning", Icon: AlertCircle };
+                        else if (hasToday) status = { label: t("punctual"), color: "text-success", Icon: CheckCircle2 };
+                        else status = { label: t("absent"), color: "text-destructive", Icon: XCircle };
+
+                        return (
+                          <div key={emp.id} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-muted/50 transition-colors">
+                            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                              <span className="text-[10px] font-bold text-primary">{(emp.full_name || emp.email).charAt(0).toUpperCase()}</span>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{emp.full_name || emp.email}</p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {emp.lastPunch?.clock_in_at ? format(new Date(emp.lastPunch.clock_in_at), "hh:mm a", { locale: dateFnsLocale }) : t("noRecord")}
+                              </p>
+                            </div>
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase ${status.color}`}>
+                              <status.Icon className={`w-3 h-3 ${isActive ? "animate-pulse" : ""}`} />
+                              {status.label}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <span className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase ${status.color}`}>
-                      <status.Icon className={`w-3 h-3 ${isActive ? "animate-pulse" : ""}`} />
-                      {status.label}
-                    </span>
                   </div>
-                );
-              })}
-              {latestPunches.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">{t("noEmployees")}</p>}
+                ));
+              })()}
             </div>
           </div>
         </div>
