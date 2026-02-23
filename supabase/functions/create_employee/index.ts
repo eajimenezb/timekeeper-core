@@ -65,6 +65,21 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check if email already exists in the company
+    const { data: existingUser } = await serviceClient
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .eq("company_id", adminRow.company_id)
+      .maybeSingle();
+
+    if (existingUser) {
+      return new Response(
+        JSON.stringify({ success: false, error: "An employee with this email already exists in your company" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Create auth user with a random password (employee can reset later)
     const tempPassword = crypto.randomUUID() + "Aa1!";
     const { data: authData, error: authError } = await serviceClient.auth.admin.createUser({
