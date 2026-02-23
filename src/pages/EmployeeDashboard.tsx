@@ -314,11 +314,11 @@ export default function EmployeeDashboard() {
           <div className="px-6 lg:px-8 pt-6 pb-4">
             <h2 className="text-base font-semibold text-foreground">{t("weeklyActivity")}</h2>
           </div>
-          <div className="px-4 lg:px-6 pb-6">
+          <div className="px-2 sm:px-4 lg:px-6 pb-6 overflow-x-auto">
             {isLoading ? (
               <p className="text-sm text-muted-foreground text-center py-8">{t("loading")}</p>
             ) : data?.history && data.history.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-2 min-w-[480px]">
                 {data.history.map((entry: any) => (
                   <div key={entry.id} className="flex items-center gap-3 lg:gap-4 px-4 py-3 rounded-2xl bg-muted/50 hover:bg-muted transition-colors duration-200">
                     <div className="min-w-[80px]">
@@ -333,10 +333,10 @@ export default function EmployeeDashboard() {
                       <div className={`w-2 h-2 rounded-full shrink-0 ${entry.clock_out_at ? "bg-destructive" : "bg-muted-foreground/30"}`} />
                       <span className={`text-sm font-mono font-medium ${entry.clock_out_at ? "text-foreground" : "text-muted-foreground"}`}>{entry.clock_out_at ? format(new Date(entry.clock_out_at), "hh:mm a") : t("pending")}</span>
                     </div>
-                    <div className="ml-auto text-right">
+                    <div className="ml-auto text-right min-w-[60px]">
                       <span className="text-sm font-semibold text-foreground">{entry.total_seconds ? formatHours(entry.total_seconds / 3600) : "—"}</span>
                     </div>
-                    <div className="hidden sm:block">
+                    <div>
                       {entry.status === "active" ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-success/10 text-success"><CircleDot className="w-2.5 h-2.5 animate-pulse" /> {t("active")}</span>
                       ) : (
