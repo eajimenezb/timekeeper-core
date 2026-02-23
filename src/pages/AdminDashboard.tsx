@@ -76,6 +76,7 @@ export default function AdminDashboard() {
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<any>(null);
   const [empForm, setEmpForm] = useState({ full_name: "", email: "", role: "employee", location_id: "" });
+  const [setupLink, setSetupLink] = useState<string | null>(null);
 
   const [showPunchModal, setShowPunchModal] = useState(false);
   const [editingPunch, setEditingPunch] = useState<any>(null);
@@ -219,7 +220,6 @@ export default function AdminDashboard() {
         if (error) throw error;
       } else {
         // Use edge function to create auth user + profile
-        const { data: { session } } = await supabase.auth.getSession();
         const res = await supabase.functions.invoke("create_employee", {
           body: {
             email: empForm.email,
@@ -230,13 +230,19 @@ export default function AdminDashboard() {
         });
         if (res.error) throw new Error(res.error.message || "Failed to create employee");
         if (res.data && !res.data.success) throw new Error(res.data.error || "Failed to create employee");
+        // Return the setup link if available
+        return res.data?.setup_link || null;
       }
     },
-    onSuccess: () => {
+    onSuccess: (link: string | null) => {
       queryClient.invalidateQueries({ queryKey: ["admin-dashboard"] });
       setShowEmployeeModal(false);
       setEditingEmployee(null);
-      toast({ title: lang === "es" ? "Guardado" : "Saved" });
+      if (link) {
+        setSetupLink(link);
+      } else {
+        toast({ title: lang === "es" ? "Guardado" : "Saved" });
+      }
     },
     onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
@@ -1014,6 +1020,39 @@ export default function AdminDashboard() {
                 {t("save")}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Setup Link Dialog */}
+      {setupLink && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setSetupLink(null)}>
+          <div className="bg-card rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-foreground">
+                {lang === "es" ? "Enlace de configuración" : "Setup Link"}
+              </h3>
+              <button onClick={() => setSetupLink(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {lang === "es"
+                ? "El correo de invitación no se pudo enviar. Comparte este enlace con el empleado para que configure su contraseña:"
+                : "The invitation email could not be sent. Share this link with the employee so they can set their password:"}
+            </p>
+            <div className="bg-muted rounded-lg p-3">
+              <p className="text-xs break-all font-mono text-foreground select-all">{setupLink}</p>
+            </div>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(setupLink);
+                toast({ title: lang === "es" ? "Enlace copiado" : "Link copied!" });
+              }}
+              className="w-full py-2 bg-primary text-primary-foreground rounded-xl font-medium hover:opacity-90 transition"
+            >
+              {lang === "es" ? "Copiar enlace" : "Copy Link"}
+            </button>
           </div>
         </div>
       )}

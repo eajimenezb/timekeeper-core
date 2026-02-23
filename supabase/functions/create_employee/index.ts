@@ -196,26 +196,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Send password reset email so the employee can set their own password
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    // Extract the project ref to build the redirect URL
-    const redirectUrl = supabaseUrl.replace("/auth/v1", "").replace("supabase.co", "supabase.co");
-    
-    const { error: resetError } = await serviceClient.auth.admin.generateLink({
+    // Generate a password recovery link to share with the employee
+    const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
       type: "recovery",
       email,
-      options: {
-        redirectTo: redirectUrl,
-      },
     });
 
-    // Also try sending via the public API which triggers the email hook
-    await serviceClient.auth.resetPasswordForEmail(email, {
-      redirectTo: `${supabaseUrl.replace('.supabase.co', '.supabase.co')}`,
-    });
+    const setupLink = linkData?.properties?.action_link || null;
 
     return new Response(
-      JSON.stringify({ success: true, user_id: newUserId }),
+      JSON.stringify({ success: true, user_id: newUserId, setup_link: setupLink }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
