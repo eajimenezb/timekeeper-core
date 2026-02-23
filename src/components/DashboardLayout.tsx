@@ -77,7 +77,7 @@ export default function DashboardLayout({ children, role, activePage = "panel", 
 
   const employeeNav = [
     { icon: LayoutDashboard, label: t("panel"), id: "panel", path: "/" },
-    { icon: Clock, label: t("clock"), id: "clock", path: "/" },
+    
     { icon: CalendarDays, label: t("history"), id: "history", path: "/history" },
     { icon: Settings, label: t("settings"), id: "settings", path: "/" },
   ];
