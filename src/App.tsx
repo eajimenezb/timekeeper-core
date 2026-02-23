@@ -23,7 +23,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function RoleRouter() {
-  const { profile, loading } = useAuth();
+  const { profile, loading, session } = useAuth();
+  
+  // Check if this is a password recovery session - redirect to set-password
+  const isRecovery = session?.user?.aud === "authenticated" && 
+    window.location.hash.includes("type=recovery");
+  if (isRecovery) return <Navigate to="/set-password" replace />;
+  
   if (loading || !profile) return <div className="min-h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
   if (profile.role === "admin") return <AdminDashboard />;
   return <EmployeeDashboard />;

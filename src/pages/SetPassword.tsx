@@ -17,9 +17,13 @@ export default function SetPassword() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // Listen for the SIGNED_IN or PASSWORD_RECOVERY event from the invite link
+    // Check if we already have a session (from recovery link)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true);
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session && (event === "SIGNED_IN" || event === "PASSWORD_RECOVERY" || event === "INITIAL_SESSION")) {
+      if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) {
         setReady(true);
       }
     });
@@ -59,7 +63,7 @@ export default function SetPassword() {
   if (!ready) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
-        <p className="text-muted-foreground">Verifying your invitation...</p>
+        <p className="text-muted-foreground">Verifying your link...</p>
       </div>
     );
   }
