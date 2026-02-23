@@ -287,7 +287,7 @@ export default function EmployeeDashboard() {
                     </div>
                     {userLocation && (
                       <div className="flex items-center justify-between text-xs gap-2">
-                        <span className="text-muted-foreground shrink-0">{lang === "es" ? "Ubicación asignada" : "Assigned Location"}</span>
+                        <span className="text-muted-foreground shrink-0">{lang === "es" ? <><span>Ubicación</span><br /><span>asignada</span></> : <><span>Assigned</span><br /><span>Location</span></>}</span>
                         <span className="font-mono text-foreground/80 text-right truncate">{userLocation.name}{userLocation.address ? ` — ${userLocation.address}` : ""}</span>
                       </div>
                     )}
