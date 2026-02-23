@@ -99,6 +99,7 @@ const translations = {
     apply: "Aplicar",
     exportCsv: "Exportar CSV",
     // Locations
+    locations: "Ubicaciones",
     manageLocations: "Gestión de Ubicaciones",
     createLocation: "Crear Ubicación",
     editLocation: "Editar Ubicación",
@@ -211,6 +212,7 @@ const translations = {
     apply: "Apply",
     exportCsv: "Export CSV",
     // Locations
+    locations: "Locations",
     manageLocations: "Location Management",
     createLocation: "Create Location",
     editLocation: "Edit Location",

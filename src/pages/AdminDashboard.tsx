@@ -64,6 +64,7 @@ function LiveClock() {
 }
 
 export default function AdminDashboard() {
+  const [activeTab, setActiveTab] = useState("panel");
   const { profile } = useAuth();
   const { t, lang } = useLanguage();
   const { settings } = useCompanySettings();
@@ -427,7 +428,7 @@ export default function AdminDashboard() {
   };
 
   return (
-    <DashboardLayout role="admin">
+    <DashboardLayout role="admin" activePage={activeTab} onNavClick={setActiveTab}>
       <div className="p-4 lg:p-8 max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between animate-fade-in-up">
@@ -438,14 +439,16 @@ export default function AdminDashboard() {
             <p className="text-sm text-muted-foreground mt-1">{profile?.company_id ? companyName : t("managerPanel")}</p>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={exportCsv}
-              disabled={!adminData?.punches || adminData.punches.length === 0}
-              className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">CSV</span>
-            </button>
+            {activeTab === "panel" && (
+              <button
+                onClick={exportCsv}
+                disabled={!adminData?.punches || adminData.punches.length === 0}
+                className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">CSV</span>
+              </button>
+            )}
             {companyData?.subscription_status === "trialing" && trialDaysLeft !== null && (
               <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-warning/10 text-warning">
                 <Clock className="w-3 h-3" />
@@ -456,6 +459,8 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* PANEL TAB: Overview */}
+        {activeTab === "panel" && (<>
         {/* Metric Cards — 3 cards, no efficiency */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
@@ -527,8 +532,10 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+        </>)}
 
-        {/* Employee Management */}
+        {/* TEAM TAB: Employee Management */}
+        {activeTab === "team" && (<>
         <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
           <div className="px-6 lg:px-8 pt-6 pb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground">{t("manageEmployees")}</h2>
@@ -648,8 +655,10 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+        </>)}
 
-        {/* Location Management */}
+        {/* LOCATIONS TAB */}
+        {activeTab === "locations" && (<>
         <div className="glass-card rounded-[2.5rem] animate-fade-in-up stagger-6">
           <div className="px-6 lg:px-8 pt-6 pb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
@@ -707,9 +716,12 @@ export default function AdminDashboard() {
             ))}
           </div>
         </div>
+        </>)}
 
-        {/* Settings / Customization */}
+        {/* SETTINGS TAB */}
+        {activeTab === "settings" && (<>
         <AdminSettings />
+        </>)}
       </div>
 
       {/* Employee Modal */}
