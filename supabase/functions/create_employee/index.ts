@@ -1,0 +1,133 @@
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const anonClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const adminUserId = claimsData.claims.sub as string;
+
+    const serviceClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    // Verify admin
+    const { data: adminRow, error: adminError } = await serviceClient
+      .from("users")
+      .select("role, company_id")
+      .eq("id", adminUserId)
+      .single();
+
+    if (adminError || !adminRow || adminRow.role !== "admin") {
+      return new Response(
+        JSON.stringify({ success: false, error: "Forbidden: admin role required" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { email, full_name, role, location_id } = await req.json();
+
+    if (!email || !role) {
+      return new Response(
+        JSON.stringify({ success: false, error: "email and role are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create auth user with a random password (employee can reset later)
+    const tempPassword = crypto.randomUUID() + "Aa1!";
+    const { data: authData, error: authError } = await serviceClient.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { full_name },
+    });
+
+    if (authError) {
+      return new Response(
+        JSON.stringify({ success: false, error: authError.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const newUserId = authData.user.id;
+
+    // The handle_new_auth_user trigger auto-creates a company + user row.
+    // We need to:
+    // 1. Find and delete the auto-created orphan company
+    // 2. Update the auto-created user row to point to admin's company with correct data
+
+    // Get the auto-created user row to find the orphan company
+    const { data: autoUser } = await serviceClient
+      .from("users")
+      .select("company_id")
+      .eq("id", newUserId)
+      .single();
+
+    const orphanCompanyId = autoUser?.company_id;
+
+    // Update the user row to the correct company and data
+    const { error: updateError } = await serviceClient
+      .from("users")
+      .update({
+        company_id: adminRow.company_id,
+        full_name: full_name || null,
+        role,
+        location_id: location_id || null,
+      })
+      .eq("id", newUserId);
+
+    if (updateError) {
+      return new Response(
+        JSON.stringify({ success: false, error: updateError.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Delete the orphan company created by the trigger
+    if (orphanCompanyId && orphanCompanyId !== adminRow.company_id) {
+      await serviceClient.from("companies").delete().eq("id", orphanCompanyId);
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, user_id: newUserId }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ success: false, error: (err as Error).message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
