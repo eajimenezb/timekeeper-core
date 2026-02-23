@@ -80,17 +80,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Use inviteUserByEmail to send an invitation email
-    const { data: inviteData, error: inviteError } = await serviceClient.auth.admin.inviteUserByEmail(email, {
-      data: { full_name },
-      redirectTo: `${Deno.env.get("SUPABASE_URL")!.replace('.supabase.co', '.supabase.co')}/auth/v1/callback`,
+    // Create user with a random password (email auto-confirmed so reset email works)
+    let newUserId: string;
+    const tempPassword = crypto.randomUUID() + "Aa1!";
+    const { data: authData, error: authError } = await serviceClient.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { full_name },
     });
 
-    let newUserId: string;
-
-    if (inviteError) {
+    if (authError) {
       // If email already exists in auth (orphaned), look it up and reuse
-      if (inviteError.message?.includes("already been registered")) {
+      if (authError.message?.includes("already been registered")) {
         const { data: listData, error: listError } = await serviceClient.auth.admin.listUsers({
           page: 1,
           perPage: 1,
@@ -148,15 +150,14 @@ Deno.serve(async (req) => {
         }
       } else {
         return new Response(
-          JSON.stringify({ success: false, error: inviteError.message }),
+          JSON.stringify({ success: false, error: authError.message }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     } else {
-      newUserId = inviteData.user.id;
+      newUserId = authData.user.id;
 
       // The handle_new_auth_user trigger auto-creates a company + user row.
-      // Wait a moment for trigger to fire, then check
       await new Promise((r) => setTimeout(r, 500));
 
       const { data: autoUser } = await serviceClient
@@ -194,6 +195,24 @@ Deno.serve(async (req) => {
         await serviceClient.from("companies").delete().eq("id", orphanCompanyId);
       }
     }
+
+    // Send password reset email so the employee can set their own password
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    // Extract the project ref to build the redirect URL
+    const redirectUrl = supabaseUrl.replace("/auth/v1", "").replace("supabase.co", "supabase.co");
+    
+    const { error: resetError } = await serviceClient.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: {
+        redirectTo: redirectUrl,
+      },
+    });
+
+    // Also try sending via the public API which triggers the email hook
+    await serviceClient.auth.resetPasswordForEmail(email, {
+      redirectTo: `${supabaseUrl.replace('.supabase.co', '.supabase.co')}`,
+    });
 
     return new Response(
       JSON.stringify({ success: true, user_id: newUserId }),
