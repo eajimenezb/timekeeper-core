@@ -72,7 +72,7 @@ export default function Auth() {
             <img 
               src="/axistrack-logo.png" 
               alt="AxisTrack" 
-              className="w-36 h-36 object-contain drop-shadow-2xl brightness-0 invert"
+              className="w-36 h-36 object-contain drop-shadow-2xl"
             />
           </div>
           <div className="space-y-3">
