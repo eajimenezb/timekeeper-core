@@ -192,7 +192,7 @@ export default function DashboardLayout({ children, role, activePage = "panel", 
           {!collapsed && (
             <div className="px-3 pt-2 animate-fade-in">
               <p className="text-[10px] text-sidebar-foreground/30 flex items-center gap-1">
-                {t("poweredBy")} <img src="/axistrack-logo.png" alt="AxisTrack" className="w-3 h-3 inline" /> <span className="font-semibold">AxisTrack</span>
+                {t("poweredBy")} <Clock className="w-3 h-3 inline" /> <span className="font-semibold">Timekeeper</span>
               </p>
             </div>
           )}
