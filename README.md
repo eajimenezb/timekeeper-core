@@ -1,7 +1,7 @@
-# TimeKeeper - Employee Time Tracking & Payroll System
+# AxisTrack - Master Your Time, Lead Your Team
 
-## What is TimeKeeper?
-A modern time-tracking system built for small to medium businesses. 
+## What is AxisTrack?
+A high-performance time-tracking system designed for seamless productivity and professional team management.
 Employees punch in/out, admins track hours and generate payroll reports.
 
 ## Features (MVP)
