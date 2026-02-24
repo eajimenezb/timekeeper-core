@@ -55,10 +55,8 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground mb-2">
-            <Clock className="w-7 h-7" />
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Timekeeper</h1>
+          <img src="/axistrack-logo.png" alt="AxisTrack" className="w-16 h-16 object-contain mx-auto mb-2" />
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">AxisTrack</h1>
           <p className="text-muted-foreground">Track time, manage your team</p>
         </div>
 
