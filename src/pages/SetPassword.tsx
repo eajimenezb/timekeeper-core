@@ -15,32 +15,48 @@ export default function SetPassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [employeeName, setEmployeeName] = useState<string | null>(null);
+  const [locationName, setLocationName] = useState<string | null>(null);
+
+  const fetchEmployeeInfo = async (userId: string) => {
+    const { data } = await supabase
+      .from("users")
+      .select("full_name, locations(name)")
+      .eq("id", userId)
+      .single();
+    if (data) {
+      setEmployeeName(data.full_name);
+      const loc = data.locations as any;
+      setLocationName(loc?.name ?? null);
+    }
+  };
 
   useEffect(() => {
     const verifyToken = async () => {
-      // Parse token_hash from URL hash (e.g., #token_hash=xxx&type=recovery)
       const hash = window.location.hash.substring(1);
       const params = new URLSearchParams(hash);
       const tokenHash = params.get("token_hash");
       const type = params.get("type");
 
       if (tokenHash && type === "recovery") {
-        // Verify the token client-side, bypassing server redirect
         const { error } = await supabase.auth.verifyOtp({
           token_hash: tokenHash,
           type: "recovery",
         });
         if (!error) {
           setReady(true);
-          // Clean the URL hash
           window.history.replaceState(null, "", window.location.pathname);
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) fetchEmployeeInfo(user.id);
           return;
         }
       }
 
-      // Fallback: check existing session
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) setReady(true);
+      if (session) {
+        setReady(true);
+        fetchEmployeeInfo(session.user.id);
+      }
     };
 
     verifyToken();
@@ -48,6 +64,7 @@ export default function SetPassword() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "PASSWORD_RECOVERY" || (event === "SIGNED_IN" && session)) {
         setReady(true);
+        if (session) fetchEmployeeInfo(session.user.id);
       }
     });
     return () => subscription.unsubscribe();
@@ -100,8 +117,14 @@ export default function SetPassword() {
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground mb-2">
             <Clock className="w-7 h-7" />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome!</h1>
-          <p className="text-muted-foreground">Set your password to get started</p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            {employeeName ? `Hi, ${employeeName}!` : "Welcome!"}
+          </h1>
+          <p className="text-muted-foreground">
+            {locationName
+              ? `Welcome to ${locationName} time tracking system. Please set up your password.`
+              : "Set your password to get started"}
+          </p>
         </div>
 
         <Card>
