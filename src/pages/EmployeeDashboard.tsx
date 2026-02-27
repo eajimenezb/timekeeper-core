@@ -257,6 +257,11 @@ export default function EmployeeDashboard() {
           setFaceVerified(true);
           setShowFaceCapture(false);
           toast({ title: lang === "es" ? `Rostro verificado (${res.confidence}% confianza)` : `Face verified (${res.confidence}% confidence)` });
+          // Auto-trigger punch after successful verification
+          if (gpsVerified) {
+            if (isClockedIn) clockOut.mutate();
+            else clockIn.mutate();
+          }
         } else {
           toast({
             title: lang === "es" ? "Rostro no coincide" : "Face doesn't match",
@@ -343,6 +348,24 @@ export default function EmployeeDashboard() {
               )}
               {isClockedIn && faceVerified && <span className="absolute inset-0 rounded-full border-2 border-destructive animate-ping opacity-20" />}
             </button>
+
+            {/* Extra manual punch button when face is already verified */}
+            {faceVerified && gpsVerified && (
+              <button
+                onClick={() => isClockedIn ? clockOut.mutate() : clockIn.mutate()}
+                disabled={clockIn.isPending || clockOut.isPending}
+                className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold transition-all duration-200 disabled:opacity-50 active:scale-95 hover:scale-105 ${
+                  isClockedIn
+                    ? "bg-destructive/10 text-destructive hover:bg-destructive/20 border border-destructive/20"
+                    : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20"
+                }`}
+              >
+                {isClockedIn ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                {isClockedIn
+                  ? (lang === "es" ? "Marcar salida" : "Punch Out")
+                  : (lang === "es" ? "Marcar entrada" : "Punch In")}
+              </button>
+            )}
 
             <div className="flex items-center gap-4 sm:gap-8 text-center">
               <div className="min-w-0">
