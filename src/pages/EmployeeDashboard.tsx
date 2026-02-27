@@ -263,6 +263,7 @@ export default function EmployeeDashboard() {
             else clockIn.mutate();
           }
         } else {
+          setShowFaceCapture(false);
           toast({
             title: lang === "es" ? "Rostro no coincide" : "Face doesn't match",
             description: lang === "es" ? "Intenta de nuevo mirando directamente a la cámara" : "Try again looking directly at the camera",
