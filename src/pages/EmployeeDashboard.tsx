@@ -6,7 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLiveTimer } from "@/hooks/useLiveTimer";
+import { useFaceEnrollment } from "@/hooks/useFaceEnrollment";
 import DashboardLayout from "@/components/DashboardLayout";
+import FaceCapture from "@/components/FaceCapture";
 import {
   MapPin,
   Shield,
@@ -17,6 +19,8 @@ import {
   CheckCircle2,
   Play,
   Square,
+  ScanFace,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es, enUS } from "date-fns/locale";
@@ -71,7 +75,23 @@ export default function EmployeeDashboard() {
   const [geoError, setGeoError] = useState<string | null>(null);
   const [detectedAddress, setDetectedAddress] = useState<string | null>(null);
 
+  // Face recognition state
+  const { enroll, verify, checkStatus, enrolling, verifying } = useFaceEnrollment();
+  const [showFaceCapture, setShowFaceCapture] = useState(false);
+  const [faceMode, setFaceMode] = useState<"enroll" | "verify">("verify");
+  const [faceVerified, setFaceVerified] = useState(false);
+  const [faceEnrolled, setFaceEnrolled] = useState<boolean | null>(null);
+
   const firstName = profile?.full_name?.split(" ")[0] || profile?.email?.split("@")[0] || "Usuario";
+
+  // Check face enrollment status
+  useEffect(() => {
+    if (profile?.id) {
+      checkStatus().then((res) => {
+        if (res) setFaceEnrolled(res.enrolled);
+      });
+    }
+  }, [profile?.id]);
 
   // Watch GPS
   useEffect(() => {
@@ -93,9 +113,7 @@ export default function EmployeeDashboard() {
         .then(r => r.json())
         .then(data => {
           if (data.display_name) {
-            // Shorten: take first 2-3 parts
             const parts = data.display_name.split(", ");
-            // Join first two parts (number + street) without comma, then add rest
             const addr = parts.length >= 3
               ? `${parts[0]} ${parts[1]}, ${parts[2]}`
               : parts.slice(0, 3).join(", ");
@@ -103,7 +121,7 @@ export default function EmployeeDashboard() {
           }
         })
         .catch(() => {});
-    }, 1000); // debounce
+    }, 1000);
     return () => { clearTimeout(timeout); controller.abort(); };
   }, [geoPosition?.lat?.toFixed(3), geoPosition?.lng?.toFixed(3)]);
 
@@ -140,7 +158,6 @@ export default function EmployeeDashboard() {
     },
   });
 
-  // Fetch user's assigned location for error margin
   const { data: userLocation } = useQuery({
     queryKey: ["user-location", profile?.id],
     queryFn: async () => {
@@ -165,7 +182,7 @@ export default function EmployeeDashboard() {
       if (!data.success) { punchInProgressRef.current = false; throw new Error(data.error); }
       return data;
     },
-    onSuccess: () => { punchInProgressRef.current = false; queryClient.invalidateQueries({ queryKey: ["employee-dashboard"] }); toast({ title: t("shiftStarted") }); },
+    onSuccess: () => { punchInProgressRef.current = false; setFaceVerified(false); queryClient.invalidateQueries({ queryKey: ["employee-dashboard"] }); toast({ title: t("shiftStarted") }); },
     onError: (e: Error) => { punchInProgressRef.current = false; toast({ title: t("startError"), description: e.message, variant: "destructive" }); },
   });
 
@@ -179,14 +196,14 @@ export default function EmployeeDashboard() {
       if (!data.success) { punchInProgressRef.current = false; throw new Error(data.error); }
       return data;
     },
-    onSuccess: () => { punchInProgressRef.current = false; queryClient.invalidateQueries({ queryKey: ["employee-dashboard"] }); toast({ title: t("shiftEnded") }); },
+    onSuccess: () => { punchInProgressRef.current = false; setFaceVerified(false); queryClient.invalidateQueries({ queryKey: ["employee-dashboard"] }); toast({ title: t("shiftEnded") }); },
     onError: (e: Error) => { punchInProgressRef.current = false; toast({ title: t("endError"), description: e.message, variant: "destructive" }); },
   });
 
   const isClockedIn = data?.current_status === "clocked_in";
   const activeEntry = data?.history?.find((e: any) => e.status === "active");
   const elapsed = useLiveTimer(activeEntry?.clock_in_at, isClockedIn);
-  // Haversine distance in meters
+
   const getDistanceMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
     const R = 6371000;
     const toRad = (d: number) => (d * Math.PI) / 180;
@@ -201,6 +218,60 @@ export default function EmployeeDashboard() {
     : null;
 
   const gpsVerified = geoPosition && distanceToWork !== null && distanceToWork < maxErrorMargin;
+
+  // Both GPS + Face required to punch
+  const canPunch = gpsVerified && faceVerified;
+
+  // Handle face verification flow
+  const handlePunchClick = () => {
+    if (!faceEnrolled) {
+      // Prompt enrollment
+      setFaceMode("enroll");
+      setShowFaceCapture(true);
+      return;
+    }
+    if (!faceVerified) {
+      // Require face verification
+      setFaceMode("verify");
+      setShowFaceCapture(true);
+      return;
+    }
+    // Already verified, proceed with punch
+    if (isClockedIn) clockOut.mutate();
+    else clockIn.mutate();
+  };
+
+  const handleFaceCapture = async (result: any) => {
+    if (faceMode === "enroll") {
+      const res = await enroll(result);
+      if (res) {
+        setFaceEnrolled(true);
+        setShowFaceCapture(false);
+        // Now prompt verification
+        toast({ title: lang === "es" ? "Ahora verifica tu rostro para marcar" : "Now verify your face to punch" });
+      }
+    } else {
+      const res = await verify(result);
+      if (res) {
+        if (res.match) {
+          setFaceVerified(true);
+          setShowFaceCapture(false);
+          toast({ title: lang === "es" ? `Rostro verificado (${res.confidence}% confianza)` : `Face verified (${res.confidence}% confidence)` });
+        } else {
+          toast({
+            title: lang === "es" ? "Rostro no coincide" : "Face doesn't match",
+            description: lang === "es" ? "Intenta de nuevo mirando directamente a la cámara" : "Try again looking directly at the camera",
+            variant: "destructive",
+          });
+        }
+      }
+    }
+  };
+
+  // Reset face verification when status changes (after punch)
+  useEffect(() => {
+    setFaceVerified(false);
+  }, [isClockedIn]);
 
   return (
     <DashboardLayout role="employee">
@@ -236,17 +307,41 @@ export default function EmployeeDashboard() {
               </div>
             )}
 
+            {/* Face verification status */}
+            {gpsVerified && (
+              <div className={`px-5 py-3 rounded-2xl text-center ${faceVerified ? "bg-success/10 border border-success/20" : faceEnrolled === false ? "bg-warning/10 border border-warning/20" : "bg-muted border border-border"}`}>
+                <p className={`text-sm font-semibold flex items-center justify-center gap-2 ${faceVerified ? "text-success" : faceEnrolled === false ? "text-warning" : "text-muted-foreground"}`}>
+                  <ScanFace className="w-4 h-4" />
+                  {faceVerified
+                    ? (lang === "es" ? "Rostro verificado ✓" : "Face verified ✓")
+                    : faceEnrolled === false
+                    ? (lang === "es" ? "Registro facial requerido" : "Face enrollment required")
+                    : (lang === "es" ? "Verificación facial requerida" : "Face verification required")}
+                </p>
+              </div>
+            )}
+
             <button
-              onClick={() => isClockedIn ? clockOut.mutate() : clockIn.mutate()}
+              onClick={handlePunchClick}
               disabled={clockIn.isPending || clockOut.isPending || !gpsVerified}
-              className={`group relative w-40 h-40 lg:w-48 lg:h-48 rounded-full flex flex-col items-center justify-center text-white font-bold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 hover:scale-105 hover:shadow-2xl ${isClockedIn ? "bg-gradient-to-br from-destructive to-destructive/80 shadow-[0_8px_32px_hsl(347,77%,50%,0.3)]" : "bg-gradient-to-br from-primary to-primary/80 shadow-[0_8px_32px_hsl(234,89%,64%,0.3)]"}`}
+              className={`group relative w-40 h-40 lg:w-48 lg:h-48 rounded-full flex flex-col items-center justify-center text-white font-bold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 hover:scale-105 hover:shadow-2xl ${
+                faceVerified
+                  ? isClockedIn
+                    ? "bg-gradient-to-br from-destructive to-destructive/80 shadow-[0_8px_32px_hsl(347,77%,50%,0.3)]"
+                    : "bg-gradient-to-br from-primary to-primary/80 shadow-[0_8px_32px_hsl(234,89%,64%,0.3)]"
+                  : "bg-gradient-to-br from-muted-foreground/80 to-muted-foreground/60 shadow-[0_8px_32px_rgba(0,0,0,0.15)]"
+              }`}
             >
-              {isClockedIn ? (
-                <><Square className="w-10 h-10 mb-2" /><span className="text-sm font-semibold">{t("endShift")}</span><span className="text-xs opacity-80">{t("shift")}</span></>
+              {faceVerified ? (
+                isClockedIn ? (
+                  <><Square className="w-10 h-10 mb-2" /><span className="text-sm font-semibold">{t("endShift")}</span><span className="text-xs opacity-80">{t("shift")}</span></>
+                ) : (
+                  <><Play className="w-10 h-10 mb-2 ml-1" /><span className="text-sm font-semibold">{t("startShift")}</span><span className="text-xs opacity-80">{t("shift")}</span></>
+                )
               ) : (
-                <><Play className="w-10 h-10 mb-2 ml-1" /><span className="text-sm font-semibold">{t("startShift")}</span><span className="text-xs opacity-80">{t("shift")}</span></>
+                <><ScanFace className="w-10 h-10 mb-2" /><span className="text-sm font-semibold">{faceEnrolled === false ? (lang === "es" ? "Registrar" : "Enroll") : (lang === "es" ? "Verificar" : "Verify")}</span><span className="text-xs opacity-80">{lang === "es" ? "Rostro" : "Face"}</span></>
               )}
-              {isClockedIn && <span className="absolute inset-0 rounded-full border-2 border-destructive animate-ping opacity-20" />}
+              {isClockedIn && faceVerified && <span className="absolute inset-0 rounded-full border-2 border-destructive animate-ping opacity-20" />}
             </button>
 
             <div className="flex items-center gap-4 sm:gap-8 text-center">
@@ -360,6 +455,33 @@ export default function EmployeeDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Face Capture Modal */}
+      {showFaceCapture && (
+        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowFaceCapture(false)}>
+          <div className="bg-card rounded-[2rem] p-6 w-full max-w-md shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">
+                {faceMode === "enroll"
+                  ? (lang === "es" ? "Registrar tu rostro" : "Enroll your face")
+                  : (lang === "es" ? "Verificar tu rostro" : "Verify your face")}
+              </h3>
+              <button onClick={() => setShowFaceCapture(false)} className="p-1 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
+            </div>
+            <FaceCapture
+              mode={faceMode}
+              autoStart
+              onCapture={handleFaceCapture}
+              onCancel={() => setShowFaceCapture(false)}
+            />
+            {(enrolling || verifying) && (
+              <p className="text-sm text-muted-foreground text-center mt-3 animate-pulse">
+                {lang === "es" ? "Procesando..." : "Processing..."}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 }

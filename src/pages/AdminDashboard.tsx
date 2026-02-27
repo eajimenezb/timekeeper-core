@@ -5,8 +5,10 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useFaceEnrollment } from "@/hooks/useFaceEnrollment";
 import DashboardLayout from "@/components/DashboardLayout";
 import AdminSettings from "@/components/AdminSettings";
+import FaceCapture from "@/components/FaceCapture";
 import {
   Users,
   AlertCircle,
@@ -30,6 +32,7 @@ import {
   Image,
   Coffee,
   Download,
+  ScanFace,
 } from "lucide-react";
 import { format } from "date-fns";
 import { es, enUS } from "date-fns/locale";
@@ -89,6 +92,13 @@ export default function AdminDashboard() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
+
+  // Face enrollment state
+  const { enroll: faceEnroll, checkStatus: faceCheckStatus, enrolling: faceEnrolling } = useFaceEnrollment();
+  const [showFaceEnrollModal, setShowFaceEnrollModal] = useState(false);
+  const [faceEnrollTargetId, setFaceEnrollTargetId] = useState<string | null>(null);
+  const [faceEnrollTargetName, setFaceEnrollTargetName] = useState<string>("");
+  const [faceStatuses, setFaceStatuses] = useState<Record<string, boolean>>({});
 
   const geocodeAddress = useCallback(async (address: string) => {
     if (!address.trim()) {
@@ -343,6 +353,27 @@ export default function AdminDashboard() {
     setLogoFile(null);
     setLogoPreview(loc.logo_url || null);
     setShowLocationModal(true);
+  };
+
+  // Load face enrollment statuses for all employees
+  useEffect(() => {
+    if (!adminData?.employees) return;
+    const loadStatuses = async () => {
+      const statuses: Record<string, boolean> = {};
+      for (const emp of adminData.employees) {
+        if (emp.role === "admin") continue;
+        const res = await faceCheckStatus(emp.id);
+        if (res) statuses[emp.id] = res.enrolled;
+      }
+      setFaceStatuses(statuses);
+    };
+    loadStatuses();
+  }, [adminData?.employees]);
+
+  const openFaceEnroll = (empId: string, empName: string) => {
+    setFaceEnrollTargetId(empId);
+    setFaceEnrollTargetName(empName);
+    setShowFaceEnrollModal(true);
   };
 
   const getLocationName = (locId: string | null) => {
@@ -662,6 +693,15 @@ export default function AdminDashboard() {
                   {!(emp as any).is_confirmed ? t("pending") : emp.is_active !== false ? t("activeStatus") : t("filed")}
                 </span>
                 <div className="flex items-center gap-1">
+                  {emp.role !== "admin" && (
+                    <button
+                      onClick={() => openFaceEnroll(emp.id, emp.full_name || emp.email)}
+                      className={`p-1.5 rounded-lg hover:bg-muted transition-colors ${faceStatuses[emp.id] ? "text-success" : "text-muted-foreground"}`}
+                      title={faceStatuses[emp.id] ? (lang === "es" ? "Rostro registrado — re-registrar" : "Face enrolled — re-enroll") : (lang === "es" ? "Registrar rostro" : "Enroll face")}
+                    >
+                      <ScanFace className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <button onClick={() => openEditEmployee(emp)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title={t("editEmployee")}>
                     <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
                   </button>
@@ -1052,6 +1092,40 @@ export default function AdminDashboard() {
             >
               {lang === "es" ? "Copiar enlace" : "Copy Link"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Face Enrollment Modal */}
+      {showFaceEnrollModal && faceEnrollTargetId && (
+        <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowFaceEnrollModal(false)}>
+          <div className="bg-card rounded-[2rem] p-6 w-full max-w-md shadow-2xl animate-scale-in" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">
+                  {lang === "es" ? "Registrar rostro" : "Enroll face"}
+                </h3>
+                <p className="text-sm text-muted-foreground">{faceEnrollTargetName}</p>
+              </div>
+              <button onClick={() => setShowFaceEnrollModal(false)} className="p-1 rounded-lg hover:bg-muted"><X className="w-4 h-4" /></button>
+            </div>
+            <FaceCapture
+              mode="enroll"
+              autoStart
+              onCapture={async (result) => {
+                const res = await faceEnroll(result, faceEnrollTargetId);
+                if (res) {
+                  setFaceStatuses(prev => ({ ...prev, [faceEnrollTargetId!]: true }));
+                  setShowFaceEnrollModal(false);
+                }
+              }}
+              onCancel={() => setShowFaceEnrollModal(false)}
+            />
+            {faceEnrolling && (
+              <p className="text-sm text-muted-foreground text-center mt-3 animate-pulse">
+                {lang === "es" ? "Procesando..." : "Processing..."}
+              </p>
+            )}
           </div>
         </div>
       )}
