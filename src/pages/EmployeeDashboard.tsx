@@ -330,11 +330,9 @@ export default function EmployeeDashboard() {
               onClick={handlePunchClick}
               disabled={clockIn.isPending || clockOut.isPending || !gpsVerified}
               className={`group relative w-40 h-40 lg:w-48 lg:h-48 rounded-full flex flex-col items-center justify-center text-white font-bold text-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 hover:scale-105 hover:shadow-2xl ${
-                faceVerified
-                  ? isClockedIn
-                    ? "bg-gradient-to-br from-destructive to-destructive/80 shadow-[0_8px_32px_hsl(347,77%,50%,0.3)]"
-                    : "bg-gradient-to-br from-primary to-primary/80 shadow-[0_8px_32px_hsl(234,89%,64%,0.3)]"
-                  : "bg-gradient-to-br from-muted-foreground/80 to-muted-foreground/60 shadow-[0_8px_32px_rgba(0,0,0,0.15)]"
+                isClockedIn
+                  ? "bg-gradient-to-br from-destructive to-destructive/80 shadow-[0_8px_32px_hsl(347,77%,50%,0.3)]"
+                  : "bg-gradient-to-br from-primary to-primary/80 shadow-[0_8px_32px_hsl(234,89%,64%,0.3)]"
               }`}
             >
               {faceVerified ? (
