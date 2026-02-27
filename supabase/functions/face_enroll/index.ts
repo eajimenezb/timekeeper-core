@@ -96,10 +96,10 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Deactivate any existing enrollment
+      // Delete any existing active enrollment to avoid unique constraint violation
       await serviceClient
         .from("face_enrollments")
-        .update({ is_active: false })
+        .delete()
         .eq("user_id", targetUserId)
         .eq("is_active", true);
 

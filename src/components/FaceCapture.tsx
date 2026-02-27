@@ -19,6 +19,7 @@ export default function FaceCapture({ onCapture, onCancel, mode = "enroll", auto
   const [scanning, setScanning] = useState(false);
   const [hintVisible, setHintVisible] = useState(false);
   const capturedRef = useRef(false);
+  const detectingRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -58,17 +59,22 @@ export default function FaceCapture({ onCapture, onCancel, mode = "enroll", auto
     hintTimerRef.current = setTimeout(() => setHintVisible(true), 10000);
 
     intervalRef.current = setInterval(async () => {
-      if (capturedRef.current) return;
-      const result = await detectFace();
-      if (result && result.descriptor && !capturedRef.current) {
-        capturedRef.current = true;
-        setScanning(false);
-        setCapturedImage(result.imageDataUrl);
-        stopCamera();
-        setCameraReady(false);
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
-        onCapture(result);
+      if (capturedRef.current || detectingRef.current) return;
+      detectingRef.current = true;
+      try {
+        const result = await detectFace();
+        if (result && result.descriptor && !capturedRef.current) {
+          capturedRef.current = true;
+          setScanning(false);
+          setCapturedImage(result.imageDataUrl);
+          stopCamera();
+          setCameraReady(false);
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+          onCapture(result);
+        }
+      } finally {
+        detectingRef.current = false;
       }
     }, 500);
 
