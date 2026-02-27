@@ -124,6 +124,57 @@ export type Database = {
           },
         ]
       }
+      face_enrollments: {
+        Row: {
+          company_id: string
+          created_at: string
+          descriptor: Json
+          enrolled_by: string
+          id: string
+          is_active: boolean
+          photo_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          descriptor: Json
+          enrolled_by: string
+          id?: string
+          is_active?: boolean
+          photo_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          descriptor?: Json
+          enrolled_by?: string
+          id?: string
+          is_active?: boolean
+          photo_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "face_enrollments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "face_enrollments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null
