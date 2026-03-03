@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useFaceEnrollment } from "@/hooks/useFaceEnrollment";
 import DashboardLayout from "@/components/DashboardLayout";
 import AdminSettings from "@/components/AdminSettings";
+import UpgradePlanModal from "@/components/UpgradePlanModal";
 import FaceCapture from "@/components/FaceCapture";
 import {
   Users,
@@ -92,6 +93,7 @@ export default function AdminDashboard() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Face enrollment state
   const { enroll: faceEnroll, checkStatus: faceCheckStatus, enrolling: faceEnrolling } = useFaceEnrollment();
@@ -146,6 +148,16 @@ export default function AdminDashboard() {
     enabled: !!profile?.company_id,
   });
   const companyName = companyInfo?.name || "";
+
+  const { data: companyBilling } = useQuery({
+    queryKey: ["company-billing", profile?.company_id],
+    queryFn: async () => {
+      if (!profile?.company_id) return null;
+      const { data } = await supabase.from("companies").select("plan_type, max_seats, subscription_status, trial_ends_at, plan_expires_at, grace_period_ends_at, billing_period").eq("id", profile.company_id).single();
+      return data as any;
+    },
+    enabled: !!profile?.company_id,
+  });
 
   const { data: companyData } = useQuery({
     queryKey: ["admin-company"],
@@ -404,6 +416,13 @@ export default function AdminDashboard() {
   });
 
   const openCreateEmployee = () => {
+    // Seat limit check
+    const activeCount = adminData?.employees?.filter(e => e.is_active !== false).length ?? 0;
+    const maxSeats = companyBilling?.max_seats ?? 5;
+    if (activeCount >= maxSeats) {
+      setShowUpgradeModal(true);
+      return;
+    }
     setEditingEmployee(null);
     setEmpForm({ full_name: "", email: "", role: "employee", location_id: "" });
     setShowEmployeeModal(true);
@@ -807,6 +826,49 @@ export default function AdminDashboard() {
 
         {/* SETTINGS TAB */}
         {activeTab === "settings" && (<>
+        {/* Plan & Billing Section */}
+        {companyBilling && (
+          <div className="glass-card rounded-[2.5rem] p-6 animate-fade-in-up">
+            <h2 className="text-base font-semibold text-foreground mb-4">{t("planBilling")}</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="rounded-2xl bg-muted/50 p-4 space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{t("currentPlan")}</p>
+                <p className="text-lg font-bold text-foreground capitalize">{companyBilling.plan_type}</p>
+                <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                  companyBilling.subscription_status === "active" ? "bg-success/10 text-success" :
+                  companyBilling.subscription_status === "trialing" ? "bg-warning/10 text-warning" :
+                  "bg-destructive/10 text-destructive"
+                }`}>
+                  {companyBilling.subscription_status}
+                </span>
+              </div>
+              <div className="rounded-2xl bg-muted/50 p-4 space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{t("seatsUsed")}</p>
+                <p className="text-lg font-bold text-foreground">
+                  {adminData?.employees?.filter(e => e.is_active !== false).length ?? 0} / {companyBilling.max_seats}
+                </p>
+                <div className="w-full h-1.5 rounded-full bg-border overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${Math.min(100, ((adminData?.employees?.filter(e => e.is_active !== false).length ?? 0) / companyBilling.max_seats) * 100)}%` }}
+                  />
+                </div>
+              </div>
+              <div className="rounded-2xl bg-muted/50 p-4 space-y-1 flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{t("billingPeriod")}</p>
+                  <p className="text-lg font-bold text-foreground capitalize">{companyBilling.billing_period || "monthly"}</p>
+                </div>
+                <button
+                  onClick={() => setShowUpgradeModal(true)}
+                  className="mt-2 w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors"
+                >
+                  {t("upgradePlan")}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <AdminSettings />
         </>)}
       </div>
@@ -1129,6 +1191,15 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Upgrade Plan Modal */}
+      <UpgradePlanModal
+        open={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        currentPlan={companyBilling?.plan_type || "trial"}
+        currentSeats={companyBilling?.max_seats || 5}
+        usedSeats={adminData?.employees?.filter(e => e.is_active !== false).length ?? 0}
+      />
     </DashboardLayout>
   );
 }

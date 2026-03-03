@@ -49,32 +49,56 @@ export type Database = {
       }
       companies: {
         Row: {
+          billing_email: string | null
+          billing_period: string | null
           created_at: string
+          grace_period_ends_at: string | null
           id: string
           logo_url: string | null
           max_seats: number
           name: string
+          plan_expires_at: string | null
+          plan_started_at: string | null
           plan_type: string
+          stripe_customer_id: string | null
+          stripe_price_id: string | null
+          stripe_subscription_id: string | null
           subscription_status: string
           trial_ends_at: string | null
         }
         Insert: {
+          billing_email?: string | null
+          billing_period?: string | null
           created_at?: string
+          grace_period_ends_at?: string | null
           id?: string
           logo_url?: string | null
           max_seats?: number
           name: string
+          plan_expires_at?: string | null
+          plan_started_at?: string | null
           plan_type?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
           subscription_status?: string
           trial_ends_at?: string | null
         }
         Update: {
+          billing_email?: string | null
+          billing_period?: string | null
           created_at?: string
+          grace_period_ends_at?: string | null
           id?: string
           logo_url?: string | null
           max_seats?: number
           name?: string
+          plan_expires_at?: string | null
+          plan_started_at?: string | null
           plan_type?: string
+          stripe_customer_id?: string | null
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string | null
           subscription_status?: string
           trial_ends_at?: string | null
         }
